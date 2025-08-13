@@ -125,10 +125,18 @@ statuschoices = {
 }
 
 
+def makeuploadpathanhang(instance, filename):
+    return f"{instance.id}/anhang/{slugify(os.path.splitext(filename)[0])}{os.path.splitext(filename)[1]}"
+
+
+def makeuploadpatsynopse(instance, filename):
+    return f"{instance.id}/synopse/{slugify(os.path.splitext(filename)[0])}{os.path.splitext(filename)[1]}"
+
+
 class Antrag(models.Model):
     typchoices = {
         "F": "Finanzantrag",
-        "S": "SatzungOrdnungsänderungsantrag",
+        "S": "Satzungs- oder Ordnungsänderungsantrag",
         "P": "Positionierungsantrag",
         "A": "Antrag",
     }
@@ -166,15 +174,22 @@ class Antrag(models.Model):
         max_length=10,
         help_text="Aus welchem Haushaltsposten wird Geld beantragt (nur Kennummer)?",
     )
+    orgsatzungsaenderung = models.BooleanField(
+        blank=True,
+        help_text="Geht es um eine Änderung der Organisationssatzung?",
+        default=False,
+    )
     synopse = models.FileField(
-        upload_to=lambda instance,
-        filename: f"{instance.id}/synopse/{slugify(os.path.splitext(filename)[0])}{os.path.splitext(filename)[1]}",
+        upload_to=makeuploadpatsynopse,
         help_text="Synopse bei Änderung von Ordnungen oder Satzungen",
+        blank=True,
+        null=True,
     )
     anhang = models.FileField(
-        upload_to=lambda instance,
-        filename: f"{instance.id}/anhang/{slugify(os.path.splitext(filename)[0])}{os.path.splitext(filename)[1]}",
+        upload_to=makeuploadpathanhang,
         help_text="Anhang an den Antrag",
+        blank=True,
+        null=True,
     )
     antragssteller = models.CharField(
         max_length=500, help_text="Antragssteller:innen (Name, HSG, Gremium...)"
@@ -183,7 +198,9 @@ class Antrag(models.Model):
         help_text="Emailadresse für automatische Updates und Nachfragen"
     )
     kontaktperson = models.CharField(
-        max_length=100, help_text="Eine spezifische Kontaktperson für Nachfragen"
+        max_length=100,
+        help_text="Eine spezifische Kontaktperson für Nachfragen",
+        blank=True,
     )
     status = models.CharField(max_length=1, choices=statuschoices, default="B")
     system_eingereicht = models.DateTimeField(auto_now_add=True, editable=False)
@@ -200,7 +217,7 @@ class Antrag(models.Model):
         ]
 
     def clean(self):
-        """Ensure that formell_eingereicht date is within the legislatur period."""
+        # Ensure that formell_eingereicht date is within the legislatur period
         if self.legislatur_id and self.formell_eingereicht:
             if not (
                 self.legislatur.anfangsdatum
@@ -213,7 +230,7 @@ class Antrag(models.Model):
                         f"der Legislaturperiode {self.legislatur.anfangsdatum} bis {self.legislatur.enddatum}."
                     }
                 )
-        if self.typ == "F" and not self.antragssumme > 0:
+        if self.typ == "F" and not (self.antragssumme or 0) > 0:
             raise ValidationError(
                 {
                     "antragssumme": "Bei Finanzanträgen muss eine (positive) Geldsumme angegeben werden"
@@ -223,6 +240,30 @@ class Antrag(models.Model):
             raise ValidationError(
                 {
                     "haushaltsposten": "Bei Finanzanträgen muss ein Haushaltsposten angegeben werden, im Zweifel kann das Finanzteam beraten"
+                }
+            )
+        if not self.typ == "F" and (self.antragssumme or 0) > 0:
+            raise ValidationError(
+                {
+                    "antragssumme": "Eine Antragssumme kann nur bei Finanzanträgen angegeben werden"
+                }
+            )
+        if not self.typ == "F" and self.haushaltsposten:
+            raise ValidationError(
+                {
+                    "haushaltsposten": "Ein Haushaltsposten kann nur bei Finanzanträgen angegeben werden"
+                }
+            )
+        if self.orgsatzungsaenderung and not self.typ == "S":
+            raise ValidationError(
+                {
+                    "orgsatzungsaenderung": "Nur Ordungs/Satzungsänderungsanträge können als die Orgsatzung ändernd markiert werden."
+                }
+            )
+        if self.synopse and not self.typ == "O":
+            raise ValidationError(
+                {
+                    "synopse": "Nur bei Änderungen an Satzungen oder Ordnungen kann eine Synopse hochgeladen werden"
                 }
             )
 
@@ -252,7 +293,7 @@ class Antrag(models.Model):
             super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Antrag {self.legislatur.nummer}/{self.nummer}: {self.titel}"
+        return f"{self.get_typ_display()} {self.legislatur.nummer}/{self.nummer}: {self.titel}"
 
 
 class Unterantrag(models.Model):
@@ -278,15 +319,19 @@ class Unterantrag(models.Model):
         help_text="Emailadresse für automatische Updates und Nachfragen"
     )
     kontaktperson = models.CharField(
-        max_length=100, help_text="Eine spezifische Kontaktperson für Nachfragen"
+        max_length=100,
+        help_text="Eine spezifische Kontaktperson für Nachfragen",
+        blank=True,
     )
     status = models.CharField(max_length=1, choices=statuschoices, default="B")
     system_eingereicht = models.DateTimeField(auto_now_add=True, editable=False)
     formell_eingereicht = models.DateTimeField(auto_now_add=True)
+
     anhang = models.FileField(
-        upload_to=lambda instance,
-        filename: f"{instance.id}/anhang/{slugify(os.path.splitext(filename)[0])}{os.path.splitext(filename)[1]}",
+        upload_to=makeuploadpathanhang,
         help_text="Anhang an den Änderungsantrag",
+        blank=True,
+        null=True,
     )
 
     class Meta:
@@ -351,7 +396,8 @@ class Lesung(models.Model):
 
     abstimmbar = models.BooleanField(
         blank=True,
-        Null=True,
+        null=True,
+        default=False,
         help_text="Kann bei dieser Lesung planmäßig abgestimmt werden?",
         editable=False,
     )
@@ -391,6 +437,17 @@ class Lesung(models.Model):
             raise ValidationError(
                 'Bei einer vorherigen Sitzung wurde dieser Antrag bereits abgestimmt. Falls es um eine Wiederholung der Abstimmung geht, bitte vorher status der vorherigen Lesung auf "Erfolgreich gelesen" ändern.'
             )
+        if self.antrag.orgsatzungsaenderung and self.dringlichkeit_beantragt:
+            raise ValidationError(
+                "Anträge, die die Orgsatzung ändern, können nicht dringlich abgestimmt werden"
+            )
+
+        if self.dringlichkeit_beantragt and self.abstimmbar:
+            raise ValidationError(
+                {
+                    "dringlichkeit_beantragt": "Der Antrag ist schon als in dieser Lesung abstimmbar markiert - entweder vorherige Lesungen wurden fälschlich als Erfolgreich markiert oder der Dringlichkeitsantrag ist gegenstandslos"
+                }
+            )
 
         if self.sitzung.anfang > timezone.now():
             allowed_pre_sitzung_status = {"AV", "NN", "T"}
@@ -400,6 +457,17 @@ class Lesung(models.Model):
                         "status": (
                             f"Vor Beginn der Sitzung darf der Status nur einer von "
                             f"{', '.join(allowed_pre_sitzung_status)} sein."
+                        )
+                    }
+                )
+        if self.sitzung.ende and self.sitzung.ende < timezone.now():
+            allowed_post_sitzung_status = {"E", "V", "ZV", "B", "A"}
+            if self.status not in allowed_post_sitzung_status:
+                raise ValidationError(
+                    {
+                        "status": (
+                            f"Nach Ende der Sitzung darf der Status nur einer von "
+                            f"{', '.join(allowed_post_sitzung_status)} sein."
                         )
                     }
                 )
