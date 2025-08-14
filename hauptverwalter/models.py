@@ -42,7 +42,7 @@ class Sitzung(models.Model):
         help_text="Wann beginnt die Sitzung?",
     )
     ende = models.DateTimeField(
-        help_text="Wann endete die Sitzung?",
+        help_text="Wann endet(e) die Sitzung?",
         blank=True,
         null=True,
     )
@@ -58,6 +58,32 @@ class Sitzung(models.Model):
     ort = models.CharField(
         max_length=1000,
     )
+
+    @property
+    def is_sondersitzung(self):
+        return self.sondersitzung
+
+    @property
+    def is_future(self):
+        return self.anfang > timezone.now()
+
+    @property
+    def is_past(self):
+        now = timezone.now()
+
+        if self.ende:
+            return self.ende < now
+
+        # Convert "now" to local time before setting midnight
+        local_now = timezone.localtime(now)
+        heute_mitternacht = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Compare anfang against *local* midnight, but ensure both are in same tz
+        return timezone.localtime(self.anfang) < heute_mitternacht
+
+    @property
+    def is_running(self):
+        return not (self.is_past or self.is_future)
 
     class Meta:
         constraints = [
@@ -83,6 +109,11 @@ class Sitzung(models.Model):
                         f"der Legislaturperiode {self.legislatur.anfangsdatum} bis {self.legislatur.enddatum}."
                     }
                 )
+
+        if self.ende and self.anfang > self.ende:
+            raise ValidationError(
+                {"ende": "Die Sitzung kann nicht enden bevor sie begonnen hat"}
+            )
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
@@ -207,6 +238,18 @@ class Antrag(models.Model):
     formell_eingereicht = models.DateTimeField(
         help_text="Formelles Einreichdatum für Priorisierung, Fristen etc"
     )
+
+    @property
+    def ist_finanzantrag(self):
+        return self.typ == "F"
+
+    @property
+    def ist_soantrag(self):
+        return self.typ == "S"
+
+    @property
+    def will_orgsatzung_aendern(self):
+        return self.orgsatzungsaenderung
 
     class Meta:
         constraints = [
@@ -415,6 +458,14 @@ class Lesung(models.Model):
         default="NN",
     )
 
+    @property
+    def is_future(self):
+        return self.status in {"AV", "NN", "T"}
+
+    @property
+    def is_past(self):
+        return self.status in {"E", "V", "ZV", "B", "A"}
+
     class Meta:
         unique_together = ("antrag", "sitzung")
         ordering = ["antrag__legislatur__nummer", "antrag__nummer", "sitzung__nummer"]
@@ -450,25 +501,17 @@ class Lesung(models.Model):
             )
 
         if self.sitzung.anfang > timezone.now():
-            allowed_pre_sitzung_status = {"AV", "NN", "T"}
-            if self.status not in allowed_pre_sitzung_status:
+            if not self.is_future:
                 raise ValidationError(
                     {
-                        "status": (
-                            f"Vor Beginn der Sitzung darf der Status nur einer von "
-                            f"{', '.join(allowed_pre_sitzung_status)} sein."
-                        )
+                        "status": "Die Sitzung hat noch nicht begonnen - der Status macht keinen Sinn"
                     }
                 )
         if self.sitzung.ende and self.sitzung.ende < timezone.now():
-            allowed_post_sitzung_status = {"E", "V", "ZV", "B", "A"}
-            if self.status not in allowed_post_sitzung_status:
+            if not self.is_past:
                 raise ValidationError(
                     {
-                        "status": (
-                            f"Nach Ende der Sitzung darf der Status nur einer von "
-                            f"{', '.join(allowed_post_sitzung_status)} sein."
-                        )
+                        "status": "Die Sitzung ist schon zuende - der Status macht keinen Sinn"
                     }
                 )
 

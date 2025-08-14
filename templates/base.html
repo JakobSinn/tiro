@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Tiro Startseite{% endblock %}</title>
+    {% load django_bootstrap5 %}
+    {% bootstrap_css %}
+    {% bootstrap_javascript %}
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg bg-light">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="">
+        TIRO - Unterlagentracker
+      </a>
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link"  href="/admin">Admin</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+</nav>
+{% bootstrap_messages %}
+<br>
+<div id="content" class="container">
+    {% block content %}{% endblock %}
+    <br>
+    <br>
+    <p class="text-center">
+      Hier werden Anträge und sonstige wichtige Unterlagen für den Studierendenrat der Universität Heidelberg bereitgestellt.
+      <br>
+      <a href="https://www.stura.uni-heidelberg.de/impressum/datenschutzerklaerung/">Datenschutzerklärung</a> - <a href="https://www.stura.uni-heidelberg.de/impressum/">Impressum</a>
+    </p>
+</div>
+<br>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

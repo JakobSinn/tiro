@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ antrag.legislatur.nummer }}/{{ antrag.nummer }}: {{ antrag.titel|safe }}{% endblock %}
+{% block content %}
+<figure class="text-end">
+<h2><small class="text-body-secondary">{{antrag.get_typ_display}}</small> {{antrag.legislatur.nummer}}/<b>{{antrag.nummer}}</b></h2>
+</figure>
+<h1>{{ antrag.titel|safe }}</h1>
+<h4>Gestellt von <b>{{ antrag.antragssteller|safe }}</b> | {{antrag.formell_eingereicht }}</h4>
+{% if antrag.ist_finanzantrag %}
+<h5><b>{{antrag.antragssumme }}</b>€ aus Haushaltsposten {{antrag.haushaltsposten}}</h5>
+{% endif %}
+{% if antrag.will_orgsatzung_aendern %}
+<h5>Für diesen Antrag sind Anwesenheit und Zustimmung von <b>2/3 der Sturamitglieder</b> nötig.</h5>
+{% endif %}
+{% if antrag.unterantrag_set.exists %}
+{% if antrag.unterantrag.set.count == 1 %}
+<h5>Für diesen Antrag liegt <b>ein Änderungsantrag</b> vor.</h5>
+{% else %}
+<h5>Für diesen Antrag liegen <b>{{ antrag.unterantrag_set.count }} Änderungsanträge</b> vor.</h5>
+{% endif %}
+{% endif %}
+<hr class="my-1">
+<p><b>Antragstext:</b><br>{{antrag.text|safe|linebreaksbr}}</p>
+<p><b>Begründung:</b><br>{{antrag.begruendung|safe|linebreaksbr}}</p>
+{% if antrag.unterantrag_set.exists %}
+<h4>Änderungsanträge:</h4>
+{% for ua in antrag.unterantrag_set.all %}
+<h5>{{ antrag.legislatur.nummer }}/{{ antrag.nummer }}.<b>{{ua.nummer}}</b>: {{ua.titel}} <small class="text-body-secondary">{{ ua.antragssteller }} | {{ ua.formell_eingereicht }}</small></h5>
+<p><b>Antragstext:</b><br>{{ua.text|safe|linebreaksbr}}</p>
+<p><b>Begründung:</b><br>{{ua.begruendung|safe|linebreaksbr}}</p>
+<hr class="my-1">
+{% endfor %}
+{% else %}
+<h5>Keine Änderungsanträge im System</h5>
+<hr class="my-1">
+{% endif %}
+{% endblock %}
