@@ -466,6 +466,18 @@ class Lesung(models.Model):
     def is_past(self):
         return self.status in {"E", "V", "ZV", "B", "A"}
 
+    @property
+    def nummer(self):
+        # die wievielte lesung ist das (nur erfolgreiche erden gezählt)
+        return (
+            Lesung.objects.filter(
+                antrag=self.antrag,
+                sitzung__nummer__lt=self.sitzung.nummer,
+                status="E",
+            ).count()
+            + 1
+        )
+
     class Meta:
         unique_together = ("antrag", "sitzung")
         ordering = ["antrag__legislatur__nummer", "antrag__nummer", "sitzung__nummer"]
@@ -526,4 +538,4 @@ class Lesung(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Lesung zu {self.antrag} in Sitzung {self.sitzung.nummer}, {self.get_status_display()}"
+        return f"Lesung {self.nummer} zu {self.antrag} in Sitzung {self.sitzung.nummer}, {self.get_status_display()}"

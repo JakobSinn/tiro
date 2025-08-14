@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Sitzungen des {{ leguiislatur.nummer }}. StuRa{% endblock %}
+{% block content %}
+<figure class="text-end">
+<h2><small class="text-body-secondary">Sitzungsübersicht der</small> <b>{{legislatur.nummer}}. Legislaturperiode </b></h2>
+</figure>
+<h1>Sitzungen</h1>
+<h4>Legislaturperiode vom {{ legislatur.anfangsdatum }} bis zum {{ legislatur.enddatum }}</h4>
+
+
+<div class="row">
+{% for sitzung in sitzungen %}
+    <div class="col-sm-4 mb-4 mb-sm-3">
+       <div class="card">
+        <div class="card-header">
+            {% if sitzung.is_sondersitzung %}<strong>Sondersitzung</strong>{% endif %} {{ sitzung.anfang|date }} | {{ sitzung.ort }}
+        </div>
+         <div class="card-body">
+           <h5 class="card-title">Sitzung {{sitzung.nummer}}</h5>
+           <p class="card-text">{{ sitzung.anfang|date }} | {{ sitzung.ort }}</p>
+           <a href="{% url "sitzung_detail_by_pk" sitzung.id %}" class="btn btn-primary" >Sitzungsdetails</a>
+         </div>
+       </div>
+    </div>
+{% empty %}
+<h3>In dieser Legislaturperiode wurden noch keine Sitzungen registriert.</h3>
+{% endfor %}
+
+</div>
+{% endblock %}

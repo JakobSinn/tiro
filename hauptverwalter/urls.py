@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import AntragDetailView, SitzungDetailView
+from .views import AntragDetailView, SitzungDetailView, SitzungListView
 
 urlpatterns = [
     path(
@@ -21,5 +21,10 @@ urlpatterns = [
         "sitzung/<int:legislatur_nummer>/<int:nummer>/",
         SitzungDetailView.as_view(),
         name="sitzung_detail_by_nummer",
+    ),
+    path(
+        "sitzung/<int:legislatur_nummer>/",
+        SitzungListView.as_view(),
+        name="legislatur_by_nummer",
     ),
 ]

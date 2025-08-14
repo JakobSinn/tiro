@@ -32,49 +32,6 @@
 {% else %}
 <h5>In dieser Sitzung finden <b>{{ sitzung.lesung_set.count }} Lesungen</b> statt.</h5>
 {% endif %}
-{% endif %}
-{% if sitzung.lesung_set.exists %}
-<h4>Angesetzte Lesungen:</h4>
-
-
-<div class="accordion" id="lesungenaccordion">
-
-
-{% for lesung in sitzung.lesung_set.all %}
-<div class="accordion-item">
-    <h2 class="accordion-header">
-      <button class="accordion-button collapsed {% if lesung.dringlichkeit_beantragt %}text-warning{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapse{{ lesung.id }}" aria-expanded="false" aria-controls="panelsStayOpen-collapse{{ lesung.id }}">
-        {% if lesung.abstimmbar %}<strong>(A)</strong> {% endif %} {{ sitzung.legislatur.nummer }}/<b>{{ lesung.antrag.nummer }}</b>: {{lesung.antrag.titel}} <small class="text-body-secondary"> {{ lesung.antrag.antragssteller }}</small>
-      </button>
-    </h2>
-    <div id="panelsStayOpen-collapse{{ lesung.id }}" class="accordion-collapse collapse">
-      <div class="accordion-body">
-        <strong>Lesungsstatus:</strong> {{ lesung.get_status_display }}
-            {% if lesung.is_future %}, 
-                {% if lesung.abstimmbar %}
-                    <b>Abstimmbar</b>
-                {% else %}
-                    Lesung ohne Abstimmung
-                {% endif %}
-                {% if lesung.dringlichkeit_beantragt %} 
-                    (<b>Dringlichkeitsantrag kann zu Abstimmung führen</b>)
-                {% endif %}
-            {% else %}
-                {% if lesung.dringlichkeit_beantragt %}(<b>Dringlichkeitsantrag wurde gestellt</b>){% endif %}
-            {% endif %}
-            <br>
-        {% if lesung.protokolleintraege %}
-        <strong>Protokolleintrag:</strong> {{ lesung.protokolleintraege|safe|linebreaksbr}}
-        {% endif %}
-        <br>
-        <a href={% url 'antrag_detail_by_pk' lesung.antrag.id %} class="btn btn-info">Antrag {{ sitzung.legislatur.nummer }}/<b>{{ lesung.antrag.nummer }}</b> anschauen</a>
-      </div>
-    </div>
-</div>
-{% endfor %}
-</div>
-{% else %}
-<h5>Keine Lesungen im System</h5>
-<hr class="my-1">
+{% include "hauptverwalter/lesung_module.html" with lesungsset=sitzung.lesung_set.all %}
 {% endif %}
 {% endblock %}
