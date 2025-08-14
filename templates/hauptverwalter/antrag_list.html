@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Anträge des {{ legislatur.nummer }}. StuRa{% endblock %}
+{% block content %}
+<figure class="text-end">
+<h2><small class="text-body-secondary">Antragsübersicht der</small> <b>{{legislatur.nummer}}. Legislaturperiode </b></h2>
+</figure>
+<h1>Anträge</h1>
+<h4>Legislaturperiode vom {{ legislatur.anfangsdatum }} bis zum {{ legislatur.enddatum }}</h4>
+
+
+<div class="row row-cols-1 row-cols-md-2 g-4">
+  {% for antrag in antraege %}
+    <div class="col d-flex">
+      <div class="card h-100 shadow-sm w-100">
+        <div class="card-header fw-bold">
+          {{ antrag.get_typ_display }}
+          {% if antrag.is_finanzantrag %}
+            ({{ antrag.antragssumme }}€)
+          {% endif %}
+          | {{ antrag.antragssteller }}
+          | {{ antrag.formell_eingereicht|date }}
+        </div>
+
+        <div class="card-body d-flex flex-column">
+          <h5 class="card-title">
+            Antrag {{ antrag.legislatur.nummer }}/<strong>{{ antrag.nummer }}</strong>: {{ antrag.titel }}
+          </h5>
+
+          <p class="card-text mb-2">
+            {{ antrag.get_status_display }} | {{ antrag.lesung_set.count }} Lesungen im System {% if antrag.will_orgsatzung_aendern %}| <strong>OrgS-Änderung</strong>{% endif %}
+          </p>
+
+          {% if antrag.unterantrag_set.exists %}
+          <strong>Änderungsanträge:</strong>
+            <ul class="list-group list-group-flush mb-3">
+              {% for unterantrag in antrag.unterantrag_set.all %}
+                <li class="list-group-item">
+                  {{ antrag.legislatur.nummer }}/{{ antrag.nummer }}.<strong>{{ unterantrag.nummer }}</strong>:
+                  {{ unterantrag.titel }} <em>({{ unterantrag.antragssteller }})</em>
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+
+          <div class="mt-auto">
+            <a href="{% url 'antrag_detail_by_pk' antrag.id %}" class="btn btn-primary">
+              Antragsdetails
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="col">
+      <h3>In dieser Legislaturperiode wurden noch keine Anträge registriert.</h3>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

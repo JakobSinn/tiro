@@ -34,4 +34,15 @@
 <h5>Keine Änderungsanträge im System</h5>
 <hr class="my-1">
 {% endif %}
+{% if antrag.lesung_set.exists %}
+<h5>Lesungen</h5>
+{% for lesung in antrag.lesung_set.all %}
+<h5><b>{{lesung.nummer}}</b>. Lesung: {{lesung.get_status_display}} <small class="text-body-secondary"><a class="link-secondary" href="{% url "sitzung_detail_by_nummer" lesung.sitzung.nummer %}">{{ lesung.sitzung.nummer }}. Sitzung | {{ lesung.sitzung.anfang|date }}</a></small></h5>
+{% if lesung.dringlichkeit_beantragt %}<b>Dringlichkeitsantrag für diese Lesung registriert</b>{% endif %}
+{% if lesung.is_past %}<p><b>Protokolleintrag:</b><br>{{lesung.protokolleintraege|safe|linebreaksbr}}</p>{% endif %}
+<hr class="my-1">
+{% endfor %}
+{% else %}
+<h5>Für diesen Antrag wurden (noch) keine Lesungen angesetzt.</h5>
+{% endif %}
 {% endblock %}

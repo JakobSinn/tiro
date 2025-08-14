@@ -242,11 +242,11 @@ class Antrag(models.Model):
     )
 
     @property
-    def ist_finanzantrag(self):
+    def is_finanzantrag(self):
         return self.typ == "F"
 
     @property
-    def ist_soantrag(self):
+    def is_soantrag(self):
         return self.typ == "S"
 
     @property
@@ -275,37 +275,37 @@ class Antrag(models.Model):
                         f"der Legislaturperiode {self.legislatur.anfangsdatum} bis {self.legislatur.enddatum}."
                     }
                 )
-        if self.typ == "F" and not (self.antragssumme or 0) > 0:
+        if self.is_finanzantrag and not (self.antragssumme or 0) > 0:
             raise ValidationError(
                 {
                     "antragssumme": "Bei Finanzanträgen muss eine (positive) Geldsumme angegeben werden"
                 }
             )
-        if self.typ == "F" and not self.haushaltsposten:
+        if self.is_finanzantrag and not self.haushaltsposten:
             raise ValidationError(
                 {
                     "haushaltsposten": "Bei Finanzanträgen muss ein Haushaltsposten angegeben werden, im Zweifel kann das Finanzteam beraten"
                 }
             )
-        if not self.typ == "F" and (self.antragssumme or 0) > 0:
+        if not self.is_finanzantrag and (self.antragssumme or 0) > 0:
             raise ValidationError(
                 {
                     "antragssumme": "Eine Antragssumme kann nur bei Finanzanträgen angegeben werden"
                 }
             )
-        if not self.typ == "F" and self.haushaltsposten:
+        if not self.is_finanzantrag and self.haushaltsposten:
             raise ValidationError(
                 {
                     "haushaltsposten": "Ein Haushaltsposten kann nur bei Finanzanträgen angegeben werden"
                 }
             )
-        if self.orgsatzungsaenderung and not self.typ == "S":
+        if self.will_orgsatzung_aendern and not self.is_soantrag:
             raise ValidationError(
                 {
                     "orgsatzungsaenderung": "Nur Ordungs/Satzungsänderungsanträge können als die Orgsatzung ändernd markiert werden."
                 }
             )
-        if self.synopse and not self.typ == "O":
+        if self.synopse and not self.is_soantrag:
             raise ValidationError(
                 {
                     "synopse": "Nur bei Änderungen an Satzungen oder Ordnungen kann eine Synopse hochgeladen werden"

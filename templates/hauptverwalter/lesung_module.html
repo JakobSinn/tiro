@@ -1,39 +1,67 @@
-<h4>Angesetzte Lesungen:</h4>
-
+<h4>Lesungen:</h4>
 
 <div class="accordion" id="lesungenaccordion">
+  {% for lesung in lesungsset %}
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="heading-{{ lesung.id }}">
+        <button 
+          class="accordion-button collapsed {% if lesung.dringlichkeit_beantragt %}text-warning{% endif %}" 
+          type="button"
+          data-bs-toggle="collapse" 
+          data-bs-target="#lesung-{{ lesung.id }}" 
+          aria-expanded="false" 
+          aria-controls="lesung-{{ lesung.id }}"
+        >
+          {% if lesung.abstimmbar %}
+            <strong class="me-2">(A)</strong>
+          {% endif %}
+          {% if lesung.dringlichkeit_beantragt %}
+            <strong class="me-2">(D)</strong>
+          {% endif %}
+          {{ lesung.antrag.legislatur.nummer }}/<b>{{ lesung.antrag.nummer }}</b>: 
+          {{ lesung.antrag.titel }}
+          <small class="text-body-secondary ms-2">
+            {{ lesung.nummer }}. Lesung | {{ lesung.antrag.antragssteller }}
+          </small>
+        </button>
+      </h2>
 
-
-{% for lesung in lesungsset %}
-<div class="accordion-item">
-    <h2 class="accordion-header">
-      <button class="accordion-button collapsed {% if lesung.dringlichkeit_beantragt %}text-warning{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapse{{ lesung.id }}" aria-expanded="false" aria-controls="panelsStayOpen-collapse{{ lesung.id }}">
-        {% if lesung.abstimmbar %}<strong>(A)</strong>&nbsp;{% endif %}{% if lesung.dringlichkeit_beantragt %}<strong>(D)</strong>&nbsp;{% endif %} {{ sitzung.legislatur.nummer }}/<b>{{ lesung.antrag.nummer }}</b>: {{lesung.antrag.titel}}&nbsp;<small class="text-body-secondary">{{ lesung.nummer }}. Lesung | {{lesung.antrag.antragssteller }}</small>
-      </button>
-    </h2>
-    <div id="panelsStayOpen-collapse{{ lesung.id }}" class="accordion-collapse collapse">
-      <div class="accordion-body">
-        <strong>Lesungsstatus:</strong> {{ lesung.get_status_display }}
+      <div 
+        id="lesung-{{ lesung.id }}" 
+        class="accordion-collapse collapse" 
+        aria-labelledby="heading-{{ lesung.id }}" 
+        data-bs-parent="#lesungenaccordion"
+      >
+        <div class="accordion-body">
+          <p>
+            <strong>Lesungsstatus:</strong> {{ lesung.get_status_display }}
             {% if lesung.is_future %}, 
-                {% if lesung.abstimmbar %}
-                    <b>Abstimmbar</b>
-                {% else %}
-                    Lesung ohne Abstimmung
-                {% endif %}
-                {% if lesung.dringlichkeit_beantragt %} 
-                    (<b>Dringlichkeitsantrag kann zu Abstimmung führen</b>)
-                {% endif %}
+              {% if lesung.abstimmbar %}
+                <b>Abstimmbar</b>
+              {% else %}
+                Lesung ohne Abstimmung
+              {% endif %}
+              {% if lesung.dringlichkeit_beantragt %} 
+                (<b>Dringlichkeitsantrag kann zu Abstimmung führen</b>)
+              {% endif %}
             {% else %}
-                {% if lesung.dringlichkeit_beantragt %}(<b>Dringlichkeitsantrag wurde gestellt</b>){% endif %}
+              {% if lesung.dringlichkeit_beantragt %}
+                (<b>Dringlichkeitsantrag wurde gestellt</b>)
+              {% endif %}
             {% endif %}
-            <br>
-        {% if lesung.protokolleintraege %}
-        <strong>Protokolleintrag:</strong> {{ lesung.protokolleintraege|safe|linebreaksbr}}
-        {% endif %}
-        <br>
-        <a href={% url 'antrag_detail_by_pk' lesung.antrag.id %} class="btn btn-info">Antrag {{ sitzung.legislatur.nummer }}/<b>{{ lesung.antrag.nummer }}</b> anschauen</a>
+          </p>
+
+          {% if lesung.protokolleintraege %}
+            <p>
+              <strong>Protokolleintrag:</strong> {{ lesung.protokolleintraege|safe|linebreaksbr }}
+            </p>
+          {% endif %}
+
+          <a href="{% url 'antrag_detail_by_pk' lesung.antrag.id %}" class="btn btn-primary">
+            Antrag {{ lesung.antrag.legislatur.nummer }}/<b>{{ lesung.antrag.nummer }}</b> anschauen
+          </a>
+        </div>
       </div>
     </div>
-</div>
-{% endfor %}
+  {% endfor %}
 </div>

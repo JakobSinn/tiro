@@ -13,7 +13,25 @@ class SitzungListView(ListView):
         # Expecting legislatur_nummer in URL kwargs
         legislatur_nummer = self.kwargs.get("legislatur_nummer")
         return Sitzung.objects.filter(legislatur__nummer=legislatur_nummer).order_by(
-            "nummer"
+            "-nummer"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        legislatur_nummer = self.kwargs.get("legislatur_nummer")
+        context["legislatur"] = get_object_or_404(Legislatur, nummer=legislatur_nummer)
+        return context
+
+
+class AntragListView(ListView):
+    model = Antrag
+    context_object_name = "antraege"
+
+    def get_queryset(self):
+        # Expecting legislatur_nummer in URL kwargs
+        legislatur_nummer = self.kwargs.get("legislatur_nummer")
+        return Antrag.objects.filter(legislatur__nummer=legislatur_nummer).order_by(
+            "-nummer"
         )
 
     def get_context_data(self, **kwargs):
