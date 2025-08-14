@@ -13,17 +13,12 @@ urlpatterns = [
         name="antrag_detail_by_nummer",
     ),
     path(
-        "sitzung/<uuid:pk>/",
-        SitzungDetailView.as_view(),
-        name="sitzung_detail_by_pk",
-    ),
-    path(
-        "sitzung/<int:legislatur_nummer>/<int:nummer>/",
+        "sitzung/<int:nummer>/",
         SitzungDetailView.as_view(),
         name="sitzung_detail_by_nummer",
     ),
     path(
-        "sitzung/<int:legislatur_nummer>/",
+        "legislatur/<int:legislatur_nummer>/",
         SitzungListView.as_view(),
         name="legislatur_by_nummer",
     ),

@@ -34,8 +34,9 @@ class Sitzung(models.Model):
     )
     nummer = models.IntegerField(
         help_text="Nummer der Sitzung",
-        editable=False,
-        validators=[MinValueValidator(1), MaxValueValidator(1000)],
+        validators=[MinValueValidator(1), MaxValueValidator(10000)],
+        unique=True,
+        blank=True,
         null=True,
     )
     anfang = models.DateTimeField(
@@ -85,14 +86,16 @@ class Sitzung(models.Model):
     def is_running(self):
         return not (self.is_past or self.is_future)
 
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["legislatur", "nummer"],
-                name="unique_legislatur_nummer_sitzung",
-            )
-        ]
+    @property
+    def nummer_in_legislatur(self):
+        bisher_in_legislatur = (
+            Sitzung.objects.filter(legislatur=self.legislatur)
+            .filter(nummer__lt=self.nummer)
+            .count()
+        )
+        return (bisher_in_legislatur or 0) + 1
 
+    class Meta:
         ordering = ["-legislatur__nummer", "-nummer"]
 
     def clean(self):
@@ -127,8 +130,7 @@ class Sitzung(models.Model):
             # Auto-assign nummer if missing
             if self.nummer is None:
                 last_nummer = (
-                    Sitzung.objects.filter(legislatur=self.legislatur)
-                    .select_for_update()  # Prevent race conditions
+                    Sitzung.objects.select_for_update()  # Prevent race conditions
                     .order_by("-nummer")
                     .values_list("nummer", flat=True)
                     .first()
@@ -141,7 +143,7 @@ class Sitzung(models.Model):
             super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Sitzung ({self.legislatur.nummer}) {self.nummer}"
+        return f"{self.nummer}. StuRa-Sitzung, {self.legislatur.nummer}. Legislatur"
 
 
 # Ein selbständiger Antrag
@@ -407,7 +409,6 @@ class Unterantrag(models.Model):
                 )
                 self.nummer = (last_nummer or 0) + 1
 
-            # Ensure our validation is enforced
             self.full_clean()
 
             super().save(*args, **kwargs)
@@ -468,7 +469,7 @@ class Lesung(models.Model):
 
     @property
     def nummer(self):
-        # die wievielte lesung ist das (nur erfolgreiche erden gezählt)
+        # die wievielte Lesung ist das (nur erfolgreiche werden gezählt)
         return (
             Lesung.objects.filter(
                 antrag=self.antrag,
@@ -499,6 +500,13 @@ class Lesung(models.Model):
         ):
             raise ValidationError(
                 'Bei einer vorherigen Sitzung wurde dieser Antrag bereits abgestimmt. Falls es um eine Wiederholung der Abstimmung geht, bitte vorher status der vorherigen Lesung auf "Erfolgreich gelesen" ändern.'
+            )
+
+        if self.sitzung.anfang < self.antrag.formell_eingereicht:
+            raise ValidationError(
+                {
+                    "sitzung": "Die Sitzung beginnt, bevor der Antrag formell eingereicht wurde"
+                }
             )
         if self.antrag.orgsatzungsaenderung and self.dringlichkeit_beantragt:
             raise ValidationError(
@@ -538,4 +546,4 @@ class Lesung(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Lesung {self.nummer} zu {self.antrag} in Sitzung {self.sitzung.nummer}, {self.get_status_display()}"
+        return f"Lesung {self.nummer} von {self.antrag} in Sitzung {self.sitzung.nummer}, {self.get_status_display()}"

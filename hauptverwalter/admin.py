@@ -98,7 +98,6 @@ class SitzungAdmin(admin.ModelAdmin):
     )
     list_filter = ("legislatur", "sondersitzung")
     ordering = ("legislatur", "nummer")
-    readonly_fields = ("nummer",)
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -117,7 +116,7 @@ class LegislaturAdmin(admin.ModelAdmin):
 
 @admin.register(Lesung)
 class LesungAdmin(admin.ModelAdmin):
-    list_display = ("antrag", "sitzung", "get_legislatur")
+    list_display = ("antrag", "sitzung")
     list_filter = (
         "antrag__legislatur",
         "sitzung__legislatur",

@@ -54,20 +54,16 @@ class SitzungDetailView(DetailView):
 
     def get_object(self, queryset=None):
         queryset = queryset or self.get_queryset()
-
-        pk = self.kwargs.get("pk")
-        legislatur_nummer = self.kwargs.get("legislatur_nummer")
+        pk = self.kwargs.get("id")
         nummer = self.kwargs.get("nummer")
 
-        if pk:
-            # Default lookup by primary key
-            return get_object_or_404(queryset, pk=pk)
-
-        if legislatur_nummer and nummer:
+        if nummer:
             # Lookup by composite key
-            return get_object_or_404(
-                queryset, legislatur__nummer=legislatur_nummer, nummer=nummer
-            )
+            return get_object_or_404(queryset, nummer=nummer)
+
+        if nummer:
+            # Lookup by composite key
+            return get_object_or_404(queryset, nummer=nummer)
 
         # If neither lookup works, raise the normal error
         return get_object_or_404(queryset, pk=None)

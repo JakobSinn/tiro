@@ -11,14 +11,18 @@
 <div class="row">
 {% for sitzung in sitzungen %}
     <div class="col-sm-4 mb-4 mb-sm-3">
-       <div class="card">
-        <div class="card-header">
-            {% if sitzung.is_sondersitzung %}<strong>Sondersitzung</strong>{% endif %} {{ sitzung.anfang|date }} | {{ sitzung.ort }}
+       <div class="card ">
+        <div class="card-header {% if sitzung.is_past %}text-bg-success{% elif sitzung.is_sondersitzung %}text-bg-warning{% elif sitzung.is_running %}text-bg-primary{% endif %}">
+            {% if sitzung.is_sondersitzung %}<strong>Sondersitzung</strong> | {% endif %}{{ sitzung.anfang }} | {{ sitzung.ort }}
         </div>
          <div class="card-body">
-           <h5 class="card-title">Sitzung {{sitzung.nummer}}</h5>
-           <p class="card-text">{{ sitzung.anfang|date }} | {{ sitzung.ort }}</p>
-           <a href="{% url "sitzung_detail_by_pk" sitzung.id %}" class="btn btn-primary" >Sitzungsdetails</a>
+           <h5 class="card-title">{{sitzung.nummer}}. StuRa-Sitzung</h5>
+           <p class="card-text">
+            {{ sitzung.nummer_in_legislatur }}. Sitzung der Legislaturperiode
+            <br>
+            {{ sitzung.lesung_set.count }} Lesungen{% if sitzung.is_future  or sitzung.is_running %} geplant{% endif %}
+           </p>
+           <a href="{% url "sitzung_detail_by_nummer" sitzung.nummer %}" class="btn btn-primary" >Sitzungsdetails</a>
          </div>
        </div>
     </div>
