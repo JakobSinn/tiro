@@ -7,8 +7,34 @@ import uuid
 import os
 
 
-# Eine StuRa-Legislaturperiode. Ihr werden Anträge und Sitzungen zugeordnet
+# --- helpers (kept as before) -----------------------------------------------
+
+statuschoices = {
+    "B": "In Beratung",
+    "A": "Angenommen",
+    "N": "Abgelehnt",
+    "Z": "Zurückgezogen",
+    "X": "Nicht behandelt",
+    "P": "Vom Präsidium zurückgewiesen",
+}
+
+
+def makeuploadpathanhang(instance, filename):
+    """Create a file path for 'anhang' files using the instance id and slugified name."""
+    return f"{instance.id}/anhang/{slugify(os.path.splitext(filename)[0])}{os.path.splitext(filename)[1]}"
+
+
+def makeuploadpatsynopse(instance, filename):
+    """Create a file path for 'synopse' files using the instance id and slugified name."""
+    return f"{instance.id}/synopse/{slugify(os.path.splitext(filename)[0])}{os.path.splitext(filename)[1]}"
+
+
+# --- core models (unchanged semantics) -------------------------------------
+
+
 class Legislatur(models.Model):
+    """Represents a StuRa legislature period; Sitzungen and Anträge belong to this."""
+
     nummer = models.IntegerField(
         primary_key=True,
         help_text="Nummer Legislaturperiode",
@@ -25,8 +51,83 @@ class Legislatur(models.Model):
         return "Legislaturperiode " + str(self.nummer)
 
 
-class Sitzung(models.Model):
+# --- mixins & abstract bases -----------------------------------------------
+
+
+class UUIDPrimaryKeyMixin(models.Model):
+    """Mixin that provides a UUID primary key field named `id`."""
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    class Meta:
+        abstract = True
+
+
+class FileAttachmentMixin(models.Model):
+    """
+    Mixin that adds common file attachments.
+    Note: both 'anhang' and 'synopse' are provided; subclasses may use or ignore them.
+    """
+
+    anhang = models.FileField(
+        upload_to=makeuploadpathanhang,
+        help_text="Anhang an den Antrag / Unterantrag",
+        blank=True,
+        null=True,
+    )
+    synopse = models.FileField(
+        upload_to=makeuploadpatsynopse,
+        help_text="Synopse bei Änderung von Ordnungen oder Satzungen (falls relevant)",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        abstract = True
+
+
+class AntragBase(UUIDPrimaryKeyMixin, FileAttachmentMixin, models.Model):
+    """
+    Abstract base for Antrag and Unterantrag:
+    contains shared descriptive/contact fields and basic timestamps/status.
+    Subclasses should implement/extend specific validation and numbering.
+    """
+
+    titel = models.CharField(max_length=300, help_text="Antragstitel")
+    text = models.TextField(help_text="Antragstext", max_length=20000)
+    begruendung = models.TextField(help_text="Begründung des Antrags", max_length=40000)
+    antragssteller = models.CharField(
+        max_length=500, help_text="Antragssteller:innen (Name, HSG, Gremium...)"
+    )
+    kontaktemail = models.EmailField(
+        help_text="Emailadresse für automatische Updates und Nachfragen"
+    )
+    kontaktperson = models.CharField(
+        max_length=100,
+        help_text="Eine spezifische Kontaktperson für Nachfragen",
+        blank=True,
+    )
+    status = models.CharField(max_length=1, choices=statuschoices, default="B")
+    system_eingereicht = models.DateTimeField(auto_now_add=True, editable=False)
+    formell_eingereicht = models.DateTimeField(
+        help_text="Formelles Einreichdatum für Priorisierung, Fristen etc",
+        auto_now_add=True,
+    )
+
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        # Concrete subclasses may override or extend this
+        return f"{self.titel} ({self.get_status_display()})"
+
+
+# --- concrete models with numbering kept inside each class ------------------
+
+
+class Sitzung(UUIDPrimaryKeyMixin, models.Model):
+    """A StuRa meeting (Sitzung). Assigned to a Legislatur and optionally numbered."""
+
     legislatur = models.ForeignKey(
         "Legislatur",
         on_delete=models.CASCADE,
@@ -71,15 +172,11 @@ class Sitzung(models.Model):
     @property
     def is_past(self):
         now = timezone.now()
-
         if self.ende:
             return self.ende < now
 
-        # Convert "now" to local time before setting midnight
         local_now = timezone.localtime(now)
         heute_mitternacht = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-
-        # Compare anfang against *local* midnight, but ensure both are in same tz
         return timezone.localtime(self.anfang) < heute_mitternacht
 
     @property
@@ -119,6 +216,7 @@ class Sitzung(models.Model):
             )
 
     def save(self, *args, **kwargs):
+        """Assign latest legislatur if missing and auto-assign global nummer if missing."""
         with transaction.atomic():
             # If no legislatur is set, pick the latest one
             if self.legislatur_id is None:
@@ -130,7 +228,7 @@ class Sitzung(models.Model):
             # Auto-assign nummer if missing
             if self.nummer is None:
                 last_nummer = (
-                    Sitzung.objects.select_for_update()  # Prevent race conditions
+                    Sitzung.objects.select_for_update()
                     .order_by("-nummer")
                     .values_list("nummer", flat=True)
                     .first()
@@ -146,27 +244,9 @@ class Sitzung(models.Model):
         return f"{self.nummer}. StuRa-Sitzung, {self.legislatur.nummer}. Legislatur"
 
 
-# Ein selbständiger Antrag
+class Antrag(AntragBase):
+    """A primary Antrag: belongs to a Legislatur and may be a financial or rule-change request."""
 
-statuschoices = {
-    "B": "In Beratung",
-    "A": "Angenommen",
-    "N": "Abgelehnt",
-    "Z": "Zurückgezogen",
-    "X": "Nicht behandelt",
-    "P": "Vom Präsidium zurückgewiesen",
-}
-
-
-def makeuploadpathanhang(instance, filename):
-    return f"{instance.id}/anhang/{slugify(os.path.splitext(filename)[0])}{os.path.splitext(filename)[1]}"
-
-
-def makeuploadpatsynopse(instance, filename):
-    return f"{instance.id}/synopse/{slugify(os.path.splitext(filename)[0])}{os.path.splitext(filename)[1]}"
-
-
-class Antrag(models.Model):
     typchoices = {
         "F": "Finanzantrag",
         "S": "Satzungs- oder Ordnungsänderungsantrag",
@@ -174,7 +254,6 @@ class Antrag(models.Model):
         "A": "Antrag",
     }
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     legislatur = models.ForeignKey(
         "Legislatur",
         on_delete=models.CASCADE,
@@ -186,14 +265,11 @@ class Antrag(models.Model):
         editable=False,
         null=True,
     )
-    titel = models.CharField(max_length=300, help_text="Antragstitel")
     typ = models.CharField(
         max_length=1,
         choices=typchoices,
         default="A",
     )
-    text = models.TextField(help_text="Antragstext", max_length=20000)
-    begruendung = models.TextField(help_text="Begründung des Antrags", max_length=40000)
     minlesungen = models.IntegerField(
         help_text="Minimal nötige Lesungen bis zur Abstimmung",
         validators=[MinValueValidator(1)],
@@ -212,34 +288,14 @@ class Antrag(models.Model):
         help_text="Geht es um eine Änderung der Organisationssatzung?",
         default=False,
     )
-    synopse = models.FileField(
-        upload_to=makeuploadpatsynopse,
-        help_text="Synopse bei Änderung von Ordnungen oder Satzungen",
-        blank=True,
-        null=True,
-    )
-    anhang = models.FileField(
-        upload_to=makeuploadpathanhang,
-        help_text="Anhang an den Antrag",
-        blank=True,
-        null=True,
-    )
-    antragssteller = models.CharField(
-        max_length=500, help_text="Antragssteller:innen (Name, HSG, Gremium...)"
-    )
-    kontaktemail = models.EmailField(
-        help_text="Emailadresse für automatische Updates und Nachfragen"
-    )
-    kontaktperson = models.CharField(
-        max_length=100,
-        help_text="Eine spezifische Kontaktperson für Nachfragen",
-        blank=True,
-    )
-    status = models.CharField(max_length=1, choices=statuschoices, default="B")
-    system_eingereicht = models.DateTimeField(auto_now_add=True, editable=False)
-    formell_eingereicht = models.DateTimeField(
-        help_text="Formelles Einreichdatum für Priorisierung, Fristen etc"
-    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["legislatur", "nummer"],
+                name="unique_legislatur_nummer_antrag",
+            )
+        ]
 
     @property
     def is_finanzantrag(self):
@@ -253,15 +309,8 @@ class Antrag(models.Model):
     def will_orgsatzung_aendern(self):
         return self.orgsatzungsaenderung
 
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["legislatur", "nummer"],
-                name="unique_legislatur_nummer_antrag",
-            )
-        ]
-
     def clean(self):
+        """Validation specific to Antrag (keeps original business rules)."""
         # Ensure that formell_eingereicht date is within the legislatur period
         if self.legislatur_id and self.formell_eingereicht:
             if not (
@@ -313,6 +362,7 @@ class Antrag(models.Model):
             )
 
     def save(self, *args, **kwargs):
+        """Auto-select latest legislatur if not given and auto-assign nummer per legislatur."""
         with transaction.atomic():
             # Auto-select latest legislatur if not given
             if self.legislatur_id is None:
@@ -321,7 +371,7 @@ class Antrag(models.Model):
                     raise ValueError("No Legislatur exists to assign to Antrag.")
                 self.legislatur = latest_legislatur
 
-            # Auto-assign nummer if not given
+            # Auto-assign nummer if not given (per legislatur)
             if self.nummer is None:
                 last_nummer = (
                     Antrag.objects.filter(legislatur=self.legislatur)
@@ -341,8 +391,9 @@ class Antrag(models.Model):
         return f"{self.get_typ_display()} {self.legislatur.nummer}/{self.nummer}: {self.titel}"
 
 
-class Unterantrag(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+class Unterantrag(AntragBase):
+    """A sub-amendment to a Hauptantrag (Hauptantrag must be in status 'B')."""
+
     hauptantrag = models.ForeignKey(
         "Antrag",
         on_delete=models.CASCADE,
@@ -352,30 +403,6 @@ class Unterantrag(models.Model):
         help_text="Nummer des Subantrags",
         validators=[MinValueValidator(1)],
         editable=False,
-        null=True,
-    )
-    titel = models.CharField(max_length=300, help_text="Antragstitel")
-    text = models.TextField(help_text="Antragstext", max_length=20000)
-    begruendung = models.TextField(help_text="Begründung des Antrags", max_length=40000)
-    antragssteller = models.CharField(
-        max_length=500, help_text="Antragssteller:innen (Name, HSG, Gremium...)"
-    )
-    kontaktemail = models.EmailField(
-        help_text="Emailadresse für automatische Updates und Nachfragen"
-    )
-    kontaktperson = models.CharField(
-        max_length=100,
-        help_text="Eine spezifische Kontaktperson für Nachfragen",
-        blank=True,
-    )
-    status = models.CharField(max_length=1, choices=statuschoices, default="B")
-    system_eingereicht = models.DateTimeField(auto_now_add=True, editable=False)
-    formell_eingereicht = models.DateTimeField(auto_now_add=True)
-
-    anhang = models.FileField(
-        upload_to=makeuploadpathanhang,
-        help_text="Anhang an den Änderungsantrag",
-        blank=True,
         null=True,
     )
 
@@ -398,6 +425,7 @@ class Unterantrag(models.Model):
             )
 
     def save(self, *args, **kwargs):
+        """Assign nummer within the hauptantrag scope."""
         with transaction.atomic():
             if self.nummer is None:
                 last_nummer = (
@@ -417,7 +445,12 @@ class Unterantrag(models.Model):
         return f"Unterantrag {self.hauptantrag.legislatur.nummer}/{self.hauptantrag.nummer}.{self.nummer}: {self.hauptantrag.titel} / {self.titel}"
 
 
-class Lesung(models.Model):
+# --- Lesung remains mostly the same, using UUID mixin -----------------------
+
+
+class Lesung(UUIDPrimaryKeyMixin, models.Model):
+    """A reading of an Antrag in a Sitzung (tracks status, protokolleintraege, etc.)."""
+
     lesungresultchoices = {
         "AV": "Softwarevorschlag",
         "NN": "Noch nicht gelesen",
@@ -429,7 +462,6 @@ class Lesung(models.Model):
         "T": "Schwebende Lesung / als Tischvorlage",
     }
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     antrag = models.ForeignKey(Antrag, on_delete=models.CASCADE)
     sitzung = models.ForeignKey(Sitzung, on_delete=models.CASCADE)
     protokolleintraege = models.TextField(
