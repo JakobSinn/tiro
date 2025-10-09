@@ -275,7 +275,11 @@ class Antrag(AntragBase):
         validators=[MinValueValidator(1)],
     )
     antragssumme = models.DecimalField(
-        blank=True, null=True, max_digits=8, decimal_places=2
+        blank=True,
+        null=True,
+        max_digits=8,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
     )
     haushaltsposten = models.CharField(
         blank=True,
@@ -308,6 +312,16 @@ class Antrag(AntragBase):
     @property
     def will_orgsatzung_aendern(self):
         return self.orgsatzungsaenderung
+
+    @property
+    def default_prio(self):
+        if self.will_orgsatzung_aendern:
+            return 300
+        if self.is_soantrag:
+            return 400
+        if self.is_finanzantrag:
+            return 500
+        return 700
 
     def clean(self):
         """Validation specific to Antrag (keeps original business rules)."""
@@ -490,6 +504,13 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
         help_text="In Welchem Status ist die Lesung",
         default="NN",
     )
+    prio = models.IntegerField(
+        verbose_name="Priorität",
+        help_text="Niedrige Werte tauchen auf generierten Tagesordnungen früher auf",
+        validators=[MinValueValidator(0)],
+        blank=True,
+        null=True,
+    )
 
     @property
     def is_future(self):
@@ -568,6 +589,7 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
                 )
 
     def save(self, *args, **kwargs):
+        """Ist der Antrag in dieser Lesung abstimmbar? Wenn keine Priorität manuell gegeben wurde, standardwerte annehmen"""
         previous_successful = Lesung.objects.filter(
             antrag=self.antrag,
             status="E",
@@ -575,6 +597,10 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
         ).count()
 
         self.abstimmbar = previous_successful >= self.antrag.minlesungen - 1
+
+        if not self.prio:
+            self.prio = self.antrag.default_prio
+
         super().save(*args, **kwargs)
 
     def __str__(self):
