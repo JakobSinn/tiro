@@ -1,0 +1,33 @@
+{# templates/includes/sitzung_card.html #}
+<div class="col-md-4 mb-4">
+  <div class="card shadow-sm border-0 h-100">
+    <div class="card-header 
+      {% if sitzung.is_past %}
+        text-bg-success
+      {% elif sitzung.is_sondersitzung %}
+        text-bg-warning
+      {% elif sitzung.is_running %}
+        text-bg-primary
+      {% else %}
+        text-bg-light
+      {% endif %}">
+      {% if sitzung.is_sondersitzung %}
+        <strong>Sondersitzung</strong> |
+      {% endif %}
+      {{ sitzung.anfang|date:"d.m.Y, H:i" }} Uhr | {{ sitzung.ort }}
+    </div>
+
+    <div class="card-body d-flex flex-column">
+      <h5 class="card-title mb-2">{{ sitzung.nummer }}. StuRa-Sitzung</h5>
+      <p class="card-text text-muted mb-3">
+        Legislaturperiode {{ sitzung.legislatur.nummer }}<br>
+        {{ sitzung.lesung_set.count }} Lesungen{% if sitzung.is_future or sitzung.is_running %} geplant{% endif %}
+      </p>
+
+      <a href="{% url 'sitzung_detail_by_nummer' sitzung.nummer %}"
+         class="btn btn-outline-primary mt-auto align-self-start">
+         Sitzungsdetails ansehen
+      </a>
+    </div>
+  </div>
+</div>

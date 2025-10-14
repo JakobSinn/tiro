@@ -27,10 +27,10 @@
 {% endif %}
 <hr class="my-1">
 {% if sitzung.lesung_set.exists %}
-{% if sitzung.lesung.set.count == 1 %}
-<h5>In dieser Sitzung findet <b>eine Lesung</b> statt:</h5>
+{% if sitzung.lesung_set.count == 1 %}
+<h5>In dieser Sitzung {% if sitzung.is_past %}fand{% else %}findet{% endif %} <b>eine Lesung</b> statt:</h5>
 {% else %}
-<h5>In dieser Sitzung finden <b>{{ sitzung.lesung_set.count }} Lesungen</b> statt.</h5>
+<h5>In dieser Sitzung {% if sitzung.is_past %}fand{% else %}findet{% endif %} <b>{{ sitzung.lesung_set.count }} Lesungen</b> statt.</h5>
 {% endif %}
 {% include "hauptverwalter/lesung_module.html" with lesungsset=sitzung.lesung_set.all %}
 {% endif %}

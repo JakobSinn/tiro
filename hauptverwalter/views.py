@@ -23,6 +23,21 @@ class SitzungListView(ListView):
         return context
 
 
+class IndexView(ListView):
+    model = Sitzung
+    context_object_name = "sitzungen"
+    template_name = "index.html"
+
+    def get_queryset(self):
+        # Expecting legislatur_nummer in URL kwargs
+        return Sitzung.objects.order_by("-nummer")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["anträgezahl"] = Antrag.objects.filter(status="B").count()
+        return context
+
+
 class AntragListView(ListView):
     model = Antrag
     context_object_name = "antraege"

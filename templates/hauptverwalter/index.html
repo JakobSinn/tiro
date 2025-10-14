@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Aktuelle StuRa-Sitzungen{% endblock %}
+
+{% block content %}
+<figure class="text-center mt-4">
+  <h2>
+    <small class="text-body-secondary">Die neuesten</small> <b>StuRa-Sitzungen</b>
+  </h2>
+  <p class="text-muted">Hier findest du die drei aktuellsten Sitzungen aller Legislaturperioden.</p>
+</figure>
+
+<div class="row justify-content-center mt-5">
+  {% for sitzung in sitzungen|dictsortreversed:"nummer"|slice:":3" %}
+    {% include "includes/sitzung_card.html" with sitzung=sitzung %}
+  {% empty %}
+    <div class="col text-center mt-5">
+      <h4 class="text-muted">Noch keine Sitzungen registriert.</h4>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="text-center mt-5">
+  <a href="{% url 'sitzung_list' %}" class="btn btn-secondary">
+    Alle Sitzungen anzeigen
+  </a>
+</div>
+{% endblock %}
