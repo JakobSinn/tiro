@@ -1,5 +1,7 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from .models import Legislatur, Sitzung, Antrag, Unterantrag, Lesung
+from django.db import transaction
+from django.core.exceptions import ValidationError
 
 
 # -------------------
@@ -37,6 +39,7 @@ class UnterantragAdmin(admin.ModelAdmin):
     search_fields = ("titel", "hauptantrag__titel")
     ordering = ("hauptantrag", "nummer")
     readonly_fields = ("nummer",)
+    date_hierarchy = "formell_eingereicht"
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "hauptantrag":
@@ -71,6 +74,7 @@ class AntragAdmin(admin.ModelAdmin):
     ordering = ("legislatur", "nummer")
     inlines = [UnterantragInline]
     readonly_fields = ("nummer",)
+    date_hierarchy = "formell_eingereicht"
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -98,6 +102,7 @@ class SitzungAdmin(admin.ModelAdmin):
     )
     list_filter = ("legislatur", "sondersitzung")
     ordering = ("legislatur", "nummer")
+    date_hierarchy = "anfang"
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -114,6 +119,43 @@ class LegislaturAdmin(admin.ModelAdmin):
     ordering = ("nummer",)
 
 
+# Lesung
+
+
+@admin.action(description="Mark selected Lesungen as 'Erfolgreich gelesen'")
+def mark_lesung_erfolgreich(modeladmin, request, queryset):
+    success_count = 0
+    failed = []
+
+    for lesung in queryset:
+        lesung.status = "E"
+        try:
+            with transaction.atomic():
+                lesung.full_clean()  # validate first
+                lesung.save()
+            success_count += 1
+        except ValidationError as e:
+            failed.append(f"{lesung}: {e}")
+
+    if success_count:
+        messages.success(
+            request, f"{success_count} Lesungen marked as 'Erfolgreich gelesen'."
+        )
+    if failed:
+        messages.error(request, "Failed to update some Lesungen:\n" + "\n".join(failed))
+
+
+@admin.action(description="Lesungen wurden wegen Sitzungsende vertagt")
+def mark_lesung_wegen_ende_vertagt(modeladmin, request, queryset):
+    for lesung in queryset:
+        lesung.status = "ZV"
+        lesung.save()
+    messages.success(
+        request,
+        f"{len(queryset)} Lesungen sind jetzt 'Wegen Ende der Sitzung vertagt'.",
+    )
+
+
 @admin.register(Lesung)
 class LesungAdmin(admin.ModelAdmin):
     list_display = ("antrag", "sitzung")
@@ -124,13 +166,14 @@ class LesungAdmin(admin.ModelAdmin):
         "abstimmbar",
     )
     search_fields = ("antrag__titel", "protokolleintraege")
+    actions = [mark_lesung_erfolgreich, mark_lesung_wegen_ende_vertagt]
 
     def get_legislatur(self, obj):
         return obj.antrag.legislatur
 
     get_legislatur.short_description = "Legislatur"
 
-    # Optional: limit Sitzung queryset to match Antrag's Legislatur in admin form
+    # limit Sitzung queryset to match Antrag's Legislatur in admin form
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "sitzung" and request.resolver_match.kwargs.get(
             "object_id"

@@ -9,15 +9,6 @@ import os
 
 # --- helpers (kept as before) -----------------------------------------------
 
-statuschoices = {
-    "B": "In Beratung",
-    "A": "Angenommen",
-    "N": "Abgelehnt",
-    "Z": "Zurückgezogen",
-    "X": "Nicht behandelt",
-    "P": "Vom Präsidium zurückgewiesen",
-}
-
 
 def makeuploadpathanhang(instance, filename):
     """Create a file path for 'anhang' files using the instance id and slugified name."""
@@ -93,6 +84,15 @@ class AntragBase(UUIDPrimaryKeyMixin, FileAttachmentMixin, models.Model):
     Subclasses should implement/extend specific validation and numbering.
     """
 
+    statuschoices = {
+        "B": "In Beratung",
+        "A": "Angenommen",
+        "N": "Abgelehnt",
+        "Z": "Zurückgezogen",
+        "X": "Nicht behandelt",
+        "P": "Vom Präsidium zurückgewiesen",
+    }
+
     titel = models.CharField(max_length=300, help_text="Antragstitel")
     text = models.TextField(help_text="Antragstext", max_length=20000)
     begruendung = models.TextField(help_text="Begründung des Antrags", max_length=40000)
@@ -116,6 +116,16 @@ class AntragBase(UUIDPrimaryKeyMixin, FileAttachmentMixin, models.Model):
 
     class Meta:
         abstract = True
+
+    def make_angenommen(self):
+        with transaction.atomic():
+            self.status = "A"
+            self.save()
+
+    def make_abgelehnt(self):
+        with transaction.atomic():
+            self.status = "N"
+            self.save()
 
     def __str__(self):
         # Concrete subclasses may override or extend this
