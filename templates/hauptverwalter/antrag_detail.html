@@ -12,6 +12,9 @@
 {% if antrag.will_orgsatzung_aendern %}
 <h5>Für diesen Antrag sind Anwesenheit und Zustimmung von <b>2/3 der Sturamitglieder</b> nötig.</h5>
 {% endif %}
+{% if antrag.beschlussfaehigkeitssicher %}
+<h5>Dieser Antrag kann nach §15 (4) der Geschäftsordnung auch von einem eigentlich beschlussunfähigen StuRa behandelt werden.</h5>
+{% endif %}
 {% if antrag.unterantrag_set.exists %}
 {% if antrag.unterantrag.set.count == 1 %}
 <h5>Für diesen Antrag liegt <b>ein Änderungsantrag</b> vor.</h5>

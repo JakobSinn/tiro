@@ -324,6 +324,18 @@ class Antrag(AntragBase):
         return self.orgsatzungsaenderung
 
     @property
+    def beschlussfaehigkeitssicher(self):
+        """
+        Gibt True zurück, wenn der Antrag bereits wegen Beschlussunfähigkeit vertagt wurde
+        (d.h. eine Lesung mit status='B' existiert)
+        und keine Änderung der Organisationssatzung geplant ist. (siehe §15 (4, 5) der StuRa-Geschäftsordnung)
+        """
+        # Prüfen, ob es Lesungen gibt, die wegen Beschlussunfähigkeit vertagt wurden
+        hat_beschlussunfaehige_lesung = self.lesung_set.filter(status="B").exists()
+
+        return hat_beschlussunfaehige_lesung and not self.will_orgsatzung_aendern
+
+    @property
     def default_prio(self):
         if self.will_orgsatzung_aendern:
             return 300
@@ -541,6 +553,29 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
             ).count()
             + 1
         )
+
+    def antrag_angenommen(self):
+        """Antrag wurde Angenommen in dieser Lesung"""
+        with transaction.atomic():
+            self.status = "A"
+            self.antrag.make_angenommen()
+
+    def antrag_abgelehnt(self):
+        with transaction.atomic():
+            self.status = "A"
+            self.antrag.make_abgelehnt()
+
+    def lesung_vertagt_sitzungsende(self):
+        with transaction.atomic():
+            self.status = "ZV"
+
+    def lesung_vertagt_beschlussunfähig(self):
+        with transaction.atomic():
+            self.status = "B"
+
+    def lesung_erfolgreich(self):
+        with transaction.atomic():
+            self.status = "E"
 
     class Meta:
         unique_together = ("antrag", "sitzung")
