@@ -5,9 +5,21 @@ from .views import (
     SitzungListView,
     AntragListView,
     IndexView,
+    AntragLeiterView,
+    BaseAntragView,
 )
 
 urlpatterns = [
+    path(
+        "antragstellen/",
+        AntragLeiterView.as_view(),
+        name="antrag_stellen",
+    ),
+    path(
+        "antragstellen/antrag",
+        BaseAntragView.as_view(),
+        name="antrag_stellen_basic",
+    ),
     path(
         "antrag/<uuid:pk>/",
         AntragDetailView.as_view(),

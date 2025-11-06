@@ -97,14 +97,15 @@ class AntragBase(UUIDPrimaryKeyMixin, FileAttachmentMixin, models.Model):
     text = models.TextField(help_text="Antragstext", max_length=20000)
     begruendung = models.TextField(help_text="Begründung des Antrags", max_length=40000)
     antragssteller = models.CharField(
-        max_length=500, help_text="Antragssteller:innen (Name, HSG, Gremium...)"
+        max_length=500,
+        help_text="Formelle Antragssteller:innen (Name, HSG, Gremium...)",
     )
     kontaktemail = models.EmailField(
-        help_text="Emailadresse für automatische Updates und Nachfragen"
+        help_text="Emailadresse für automatische Updates und Nachfragen, wird nicht veröffentlicht"
     )
     kontaktperson = models.CharField(
         max_length=100,
-        help_text="Eine spezifische Kontaktperson für Nachfragen",
+        help_text="Eine spezifische Kontaktperson für Nachfragen, wird nicht veröffentlicht",
         blank=True,
     )
     status = models.CharField(max_length=1, choices=statuschoices, default="B")
@@ -255,7 +256,7 @@ class Sitzung(UUIDPrimaryKeyMixin, models.Model):
 
 
 class Antrag(AntragBase):
-    """A primary Antrag: belongs to a Legislatur and may be a financial or rule-change request."""
+    """A primary Antrag: belongs to a Legislatur."""
 
     typchoices = {
         "F": "Finanzantrag",

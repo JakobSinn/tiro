@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Antrag Stellen{% endblock %}
+{% block content %}
+<figure class="text-end">
+  <h2>
+    <small class="text-body-secondary">Antrag stellen:</small>
+    <b> {{ aktuelle_legislatur }}. Legislaturperiode </b>
+  </h2>
+</figure>
+
+Hier kannst du einen eigenen Antrag einreichen. Setze dich davor gerne mit dem passenden Referat oder dem Präsidium des Studierendenrates in Verbindung.
+<p>
+  <a href="{% url 'antrag_stellen_basic' %}" class="btn btn-primary">
+    Eigenen Antrag stellen
+  </a>
+{% endblock %}

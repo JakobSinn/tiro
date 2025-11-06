@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Aktuelle StuRa-Sitzungen{% endblock %}
+{% block title %}Aktuelle StuRa-Papiere{% endblock %}
 
 {% block content %}
 <figure class="text-center mt-4">
   <h2>
-    <small class="text-body-secondary">Die neuesten</small> <b>StuRa-Sitzungen</b>
+    <b>StuRa-Sitzungen</b>
   </h2>
-  <p class="text-muted">Hier findest du die drei aktuellsten Sitzungen aller Legislaturperioden.</p>
+  <p class="text-muted">Hier findest du die drei aktuellsten Sitzungen aller Legislaturperioden.<br>Zur Zeit wird über {{ antraege_zahl }} Anträge beraten.</p>
 </figure>
 
 <div class="row justify-content-center mt-5">
-  {% for sitzung in sitzungen|dictsortreversed:"nummer"|slice:":3" %}
-    {% include "includes/sitzung_card.html" with sitzung=sitzung %}
+  {% for sitzung in sitzungen|slice:":3" %}
+    {% include "hauptverwalter/sitzung_card.html" with sitzung=sitzung %}
   {% empty %}
     <div class="col text-center mt-5">
       <h4 class="text-muted">Noch keine Sitzungen registriert.</h4>
@@ -20,8 +20,14 @@
 </div>
 
 <div class="text-center mt-5">
-  <a href="{% url 'sitzung_list' %}" class="btn btn-secondary">
+  <a href="{% url 'antrag_by_legislatur' aktuelle_legislatur %}" class="btn btn-secondary">
     Alle Sitzungen anzeigen
+  </a>
+  <a href="{% url 'antrag_by_legislatur' aktuelle_legislatur %}" class="btn btn-secondary">
+    Alle Anträge anzeigen
+  </a>
+  <a href="{% url 'antrag_stellen' %}" class="btn btn-primary">
+    Eigenen Antrag stellen
   </a>
 </div>
 {% endblock %}

@@ -1,8 +1,34 @@
 from django.shortcuts import get_object_or_404
+from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
+from django.views.generic.edit import CreateView
 
 from .models import Antrag, Unterantrag, Sitzung, Legislatur, Lesung  # noqa: F401
+from .forms import BaseAntragForm
+
+
+def get_current_legislature():
+    nummer = Legislatur.objects.order_by("-nummer").first().nummer
+    if not nummer:
+        return 1
+    else:
+        return nummer
+
+
+class AntragLeiterView(TemplateView):
+    template_name = "hauptverwalter/antragsleitung.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["aktuelle_legislatur"] = get_current_legislature()
+        return context
+
+
+class BaseAntragView(CreateView):
+    model = Antrag
+    form_class = BaseAntragForm
+    template_name = "hauptverwalter/antrag_form_basic.html"
 
 
 class SitzungListView(ListView):
@@ -26,7 +52,7 @@ class SitzungListView(ListView):
 class IndexView(ListView):
     model = Sitzung
     context_object_name = "sitzungen"
-    template_name = "index.html"
+    template_name = "hauptverwalter/index.html"
 
     def get_queryset(self):
         # Expecting legislatur_nummer in URL kwargs
@@ -34,25 +60,42 @@ class IndexView(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["anträgezahl"] = Antrag.objects.filter(status="B").count()
+        context["antraege_zahl"] = Antrag.objects.filter(status="B").count()
+        context["aktuelle_legislatur"] = get_current_legislature()
         return context
 
 
 class AntragListView(ListView):
     model = Antrag
     context_object_name = "antraege"
+    template_name = "antrag_list.html"
 
     def get_queryset(self):
-        # Expecting legislatur_nummer in URL kwargs
         legislatur_nummer = self.kwargs.get("legislatur_nummer")
-        return Antrag.objects.filter(legislatur__nummer=legislatur_nummer).order_by(
+        qs = Antrag.objects.filter(legislatur__nummer=legislatur_nummer).order_by(
             "-nummer"
         )
+
+        # --- Filtering logic ---
+        status = self.request.GET.get("status")
+        typ = self.request.GET.get("typ")
+
+        if status:
+            qs = qs.filter(status=status)
+        if typ:
+            qs = qs.filter(typ=typ)
+
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         legislatur_nummer = self.kwargs.get("legislatur_nummer")
         context["legislatur"] = get_object_or_404(Legislatur, nummer=legislatur_nummer)
+
+        # Preserve current filters for template use
+        context["current_status"] = self.request.GET.get("status", "")
+        context["current_type"] = self.request.GET.get("type", "")
+
         return context
 
 

@@ -3,13 +3,13 @@
   <div class="card shadow-sm border-0 h-100">
     <div class="card-header 
       {% if sitzung.is_past %}
-        text-bg-success
+        text-bg-light
       {% elif sitzung.is_sondersitzung %}
         text-bg-warning
       {% elif sitzung.is_running %}
         text-bg-primary
       {% else %}
-        text-bg-light
+         text-bg-success 
       {% endif %}">
       {% if sitzung.is_sondersitzung %}
         <strong>Sondersitzung</strong> |

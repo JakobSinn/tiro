@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% load django_bootstrap5 %}
+<figure class="text-end">
+  <h2>
+    <small class="text-body-secondary">Antrag stellen:</small>
+    <b>Positionierungsantrag oder Andere</b>
+  </h2>
+</figure>
+
+<form class="align-items-center" method="post">
+    {% csrf_token %}
+    {% bootstrap_form_errors form %}
+    <h4>Daten über dich</h4>
+    <div class="mb-3">
+      {% bootstrap_field form.antragssteller %}
+    </div>
+    
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        {% bootstrap_field form.kontaktperson %}
+      </div>
+      <div class="col-md-6 mb-3">
+        {% bootstrap_field form.kontaktemail %}
+      </div>
+    </div>
+    <h4>Inhalt deines Antrags</h4>
+    <div class="mb-3">
+      {% bootstrap_field form.text %}
+    </div>
+    <div class="mb-3">
+      {% bootstrap_field form.begruendung %}
+    </div>
+</form>
+
+</div>
+<br>
+{% endblock %}
