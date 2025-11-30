@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <style>
+    @page {
+      size: A4;
+      margin: 2cm 2cm 3cm 2cm;
+
+      @bottom-center {
+        content: "Antrag {{ antrag.legislatur.nummer }}/{{ antrag.nummer }} - Seite " counter(page) " von " counter(pages) "  –  Stand {{ now|date:'d.m.Y H:i' }}";
+        font-size: 9pt;
+        color: #000000ff;
+      }
+    }
+
+    body {
+      font-family: "Times New Roman", Times, serif;      
+      line-height: 2;
+      color: #000000ff;
+      font-size: 11pt;
+    }
+
+    h1 {
+      font-family: "Helvetica", sans-serif;
+      font-size: 16pt;
+      border-bottom: 2px solid #000000ff;
+      margin-bottom: 0.5em;
+      padding-bottom: 0.2em;
+      line-height: 1;
+
+    }
+
+    h3 {
+      font-family: "Helvetica", sans-serif;
+      font-size: 11pt;
+      margin-top: 1.2em;
+      line-height: 1;
+    }
+
+    .meta {
+      font-size: 10pt;
+      color: #000000ff;
+      margin-bottom: 1em;
+      line-height: 1.5;
+      font-family: "Helvetica", sans-serif;
+
+    }
+
+    .unterantrag {
+      margin-top: 1.2em;
+      border-left: 3px solid #919191ff;
+      padding-left: 10px;
+      
+    }
+
+    .footer {
+      font-family: "Helvetica", sans-serif;
+      text-align: center;
+      font-size: 9pt;
+      color: #000000ff;
+      margin-top: 1cm;
+    }
+  </style>
+</head>
+<body>
+  <h3>Studierendenrat der Universität Heidelberg, {{ antrag.legislatur.nummer }}. Legislatur</h3>
+  <h1>Antrag {{antrag.legislatur.nummer}}/<strong>{{antrag.nummer}}</strong>: {{ antrag.titel }}</h1>
+
+  <div class="meta">
+    <strong>Typ:</strong> {{ antrag.get_typ_display }}<br>
+    <strong>Status:</strong> {{ antrag.get_status_display }}<br>
+    <strong>Nötige Lesungen:</strong> {{ antrag.minlesungen }}<br>
+    <strong>Antragsteller:innen:</strong> {{ antrag.antragssteller }}<br>
+    <strong>Eingereicht:</strong> {{ antrag.formell_eingereicht|date:"d.m.Y H:i" }}<br>
+    {% if antrag.is_finanzantrag %}
+    <strong>Beantragte Summe:</strong> {{ antrag.antragssumme }} €<br>
+    <strong>Haushaltsposten:</strong> {{ antrag.haushaltsposten }}<br>
+    {% endif %}
+    {% if antrag.beschlussfaehigkeitssicher %}
+    <strong>Dieser Antrag kann nach §15 (4) der Geschäftsordnung auch von einem eigentlich beschlussunfähigen StuRa behandelt werden.</strong><br>
+    {% endif %}
+    {% if antrag.is_soantrag %}
+    <strong>Dieser Antrag ändert die Organisationssatzung und kann nur mit Zustimmung von 2/3 aller amtierenden StuRa-Mitglieder beschlossen werden.</strong>
+    {% endif %}
+    {% if ua.anmerkungen_extern %}
+    <strong>Anmerkung des Präsidiums:</strong> {{ua.anmerkungen_extern }} <br>
+    {% endif %}
+
+  </div>
+
+  <h3>Antragstext</h3>
+  <p style="white-space: pre-wrap;">{{ antrag.text }}</p>
+
+  <h3>Begründung</h3>
+  <p style="white-space: pre-wrap;">{{ antrag.begruendung }}</p>
+
+  {% if unterantraege %}
+    <h2>Unteranträge / Änderungsanträge</h2>
+    {% for ua in unterantraege %}
+      <div class="unterantrag">
+        <strong>{{ ua.nummer }}: {{ ua.titel }}</strong><br>
+        <em>Status:</em> {{ ua.get_status_display }}
+        <p style="white-space: pre-wrap;">
+          {% if ua.anmerkungen_extern %}<em>Anmerkung des Präsidiums:</em> {{ua.anmerkungen_extern }} <br>{% endif %}
+          <em>Antragstext:</em>{{ ua.text }}</p>
+        <p><em>Begründung:</em><br>{{ ua.begruendung }}</p>
+      </div>
+    {% endfor %}
+  {% endif %}
+  {% if lesungen %}
+    <h2>Lesungen</h2>
+    {% for ls in lesungen %}
+      <div class="unterantrag">
+        <strong>{%if ls.abstimmbar %}<em>(Abstimmung)</em> {% endif %}{% if ls.is_tischvorlage %}Tischvorlage {% elif ls.is_future %}Angesetzte {% elif ls.is_past %}({{ls.get_status_display}}) {% endif %}{{ ls.nummer }}. Lesung in Sitzung {{ ls.sitzung.nummer }}</strong><br>
+        {% if ls.protokolleintraege %}
+        <p style="white-space: pre-wrap;"><em>Protokolleinträge:</em>{{ ls.protokolleintraege }}</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+  Für diesen Antrag wurden noch keine Lesungen angesetzt oder gehalten.
+  {% endif %}
+
+
+
+</body>
+</html>

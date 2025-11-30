@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "hauptverwalter",
-    "django_bootstrap5",
+    "weasyprintdjango_bootstrap5",
 ]
 
 MIDDLEWARE = [

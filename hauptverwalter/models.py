@@ -114,6 +114,17 @@ class AntragBase(UUIDPrimaryKeyMixin, FileAttachmentMixin, models.Model):
         help_text="Formelles Einreichdatum für Priorisierung, Fristen etc",
         auto_now_add=True,
     )
+    anmerkungen_extern = models.TextField(
+        max_length=10000,
+        blank=True,
+        help_text="Von außen lesbare Anmerkungen des Präsidiums",
+    )
+
+    anmerkungen_intern = models.TextField(
+        max_length=10000,
+        blank=True,
+        help_text="Von außen _nicht_ lesbare Anmerkungen des Präsidiums",
+    )
 
     class Meta:
         abstract = True
@@ -497,6 +508,7 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
         "B": "Wegen Beschlussunfähigkeit vertagt",
         "A": "Abgestimmt",
         "T": "Schwebende Lesung / als Tischvorlage",
+        "NT": "Aufname nach ",
     }
 
     antrag = models.ForeignKey(Antrag, on_delete=models.CASCADE)
@@ -540,8 +552,12 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
         return self.status in {"AV", "NN", "T"}
 
     @property
+    def is_tischvorlage(self):
+        return self.status in {"T", "NT"}
+
+    @property
     def is_past(self):
-        return self.status in {"E", "V", "ZV", "B", "A"}
+        return self.status in {"E", "V", "ZV", "B", "A", "NT"}
 
     @property
     def nummer(self):

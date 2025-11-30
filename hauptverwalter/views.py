@@ -3,6 +3,11 @@ from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView
+from django.utils import timezone
+from django.http import HttpResponse
+from django_weasyprint import WeasyTemplateResponseMixin
+from docxtpl import DocxTemplate
+import io
 
 from .models import Antrag, Unterantrag, Sitzung, Legislatur, Lesung  # noqa: F401
 from .forms import BaseAntragForm
@@ -99,6 +104,41 @@ class AntragListView(ListView):
         return context
 
 
+class AntragQuittungView(WeasyTemplateResponseMixin, DetailView):
+    """
+    Erzeugt eine Quittung für einen Antrag, die den aktuellen Datenstand als pdf ausgibt.
+    """
+
+    model = Antrag
+    template_name = "hauptverwalter/pdf/quittung_antrag.html"
+    pdf_filename = None  # will be set dynamically below
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        antrag = self.get_object()
+        context["antrag"] = antrag
+        context["unterantraege"] = Unterantrag.objects.filter(
+            hauptantrag=antrag
+        ).order_by("nummer")
+        context["lesungen"] = Lesung.objects.filter(antrag=antrag).order_by(
+            "sitzung__nummer"
+        )
+        context["now"] = timezone.now()
+        return context
+
+    def get_pdf_filename(self):
+        antrag = self.get_object()
+        return f"Quittung_{antrag.legislatur.nummer}_{antrag.nummer}.pdf"
+
+    # Optional: set response headers or PDF metadata
+    def get_pdf_response(self, pdf):
+        response = super().get_pdf_response(pdf)
+        response["Content-Disposition"] = (
+            f'inline; filename="{self.get_pdf_filename()}"'
+        )
+        return response
+
+
 class AntragDetailView(DetailView):
     model = Antrag
     context_object_name = "antrag"
@@ -143,3 +183,58 @@ class SitzungDetailView(DetailView):
 
         # If neither lookup works, raise the normal error
         return get_object_or_404(queryset, pk=None)
+
+
+class SitzungDocxView(DetailView):
+    model = Sitzung
+    template_name = None
+
+    docx_template = "docx/sitzung_template.docx"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        sitzung = self.object
+
+        # Query all lesungen belonging to this Sitzung
+        lesungen = (
+            Lesung.objects.filter(sitzung=sitzung)
+            .select_related("antrag")
+            .order_by("priority", "antrag__formell_eingereicht")
+        )
+
+        # Build grouped structure
+        grouped = []
+        current_priority = None
+        priority_block = None
+
+        for l in lesungen:
+            if l.priority != current_priority:
+                current_priority = l.priority
+                priority_block = {"priority": current_priority, "lesungen": []}
+                grouped.append(priority_block)
+            priority_block["lesungen"].append(l)
+
+        context["sitzung"] = sitzung
+        context["lesungen"] = lesungen
+
+    def render_to_response(self, context, **response_kwargs):
+        # Load docx template
+        doc = DocxTemplate(self.docx_template)
+        doc.render(context)
+
+        # Save into memory buffer
+        buffer = io.BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+
+        # Return response
+        filename = f"sitzung_{self.object.nummer}.docx"
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type=(
+                "application/"
+                "vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ),
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response

@@ -5,7 +5,7 @@
 <h2><small class="text-body-secondary">{{antrag.get_typ_display}}</small> {{antrag.legislatur.nummer}}/<b>{{antrag.nummer}}</b></h2>
 </figure>
 <h1>{{ antrag.titel|safe }}</h1>
-<h4>Gestellt von <b>{{ antrag.antragssteller|safe }}</b> | {{antrag.formell_eingereicht }}</h4>
+<h4>Gestellt von <b>{{ antrag.antragssteller|safe }}</b> | {{antrag.formell_eingereicht }} | <a href="{% url 'antrag_quittung' antrag.pk %}">pdf</a></h4>
 {% if antrag.ist_finanzantrag %}
 <h5><b>{{antrag.antragssumme }}</b>€ aus Haushaltsposten {{antrag.haushaltsposten}}</h5>
 {% endif %}

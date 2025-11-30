@@ -7,6 +7,7 @@ from .views import (
     IndexView,
     AntragLeiterView,
     BaseAntragView,
+    AntragQuittungView,
 )
 
 urlpatterns = [
@@ -19,6 +20,11 @@ urlpatterns = [
         "antragstellen/antrag",
         BaseAntragView.as_view(),
         name="antrag_stellen_basic",
+    ),
+    path(
+        "antrag/<uuid:pk>/quittung",
+        AntragQuittungView.as_view(),
+        name="antrag_quittung",
     ),
     path(
         "antrag/<uuid:pk>/",
