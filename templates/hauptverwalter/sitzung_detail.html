@@ -10,6 +10,7 @@
 {% if sitzung.anmerkungen %}
 <h5>Anmerkung des Präsidiums: {{ sitzung.anmerkungen|safe }}</h5>
 {% endif %}
+<h5><a href="{% url "sitzung_matrix" sitzung.nummer %}">Abstimmungsmatrix (pdf)</a></h5>
 {% if sitzung.is_running %}
 <h5 class="text-warning">
     Diese Sitzung läuft planmäßig gerade!

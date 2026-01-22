@@ -667,3 +667,21 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
 
     def __str__(self):
         return f"Lesung {self.nummer} von {self.antrag} in Sitzung {self.sitzung.nummer}, {self.get_status_display()}"
+
+
+class TOPname(UUIDPrimaryKeyMixin, models.Model):
+    """Gibt einem bestimmten Prioritäten-Level in einer Sitzung einen bestimmten Namen"""
+
+    sitzung = models.ForeignKey(Sitzung, on_delete=models.CASCADE)
+    name = models.CharField(
+        help_text="Der TOP-Name für alle Lesungen mit diesem Prio-Wert", max_length=200
+    )
+    prio = models.IntegerField(
+        verbose_name="Prioritätswert, der mit diesem Namen bezeichnet werden soll",
+        help_text="Niedrige Werte tauchen auf generierten Tagesordnungen früher auf",
+        validators=[MinValueValidator(0)],
+    )
+
+    class Meta:
+        unique_together = [["name", "sitzung"], ["prio", "sitzung"]]
+        ordering = ["sitzung__nummer", "prio"]

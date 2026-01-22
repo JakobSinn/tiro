@@ -11,6 +11,7 @@ import io
 
 from .models import Antrag, Unterantrag, Sitzung, Legislatur, Lesung  # noqa: F401
 from .forms import BaseAntragForm
+from .helper import buildTOPs
 
 
 def get_current_legislature():
@@ -177,12 +178,49 @@ class SitzungDetailView(DetailView):
             # Lookup by composite key
             return get_object_or_404(queryset, nummer=nummer)
 
-        if nummer:
-            # Lookup by composite key
-            return get_object_or_404(queryset, nummer=nummer)
-
         # If neither lookup works, raise the normal error
         return get_object_or_404(queryset, pk=None)
+
+
+class SitzungAbstimmungsmatrixView(WeasyTemplateResponseMixin, DetailView):
+    """
+    Erzeugt eine Abstimmungsmatrix für eine Sitzung als PDF.
+    """
+
+    model = Sitzung
+    template_name = "hauptverwalter/pdf/abstimmungsmatrix.html"
+    pdf_filename = None  # set dynamically
+
+    def get_object(self, queryset=None):
+        queryset = queryset or self.get_queryset()
+        return get_object_or_404(
+            queryset,
+            nummer=self.kwargs.get("nummer"),
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        sitzung = self.object
+
+        context.update(
+            {
+                "sitzung": sitzung,
+                "bloecke": buildTOPs(sitzung),
+                "now": timezone.now(),
+            }
+        )
+        return context
+
+    def get_pdf_filename(self):
+        return f"sitzung_{self.object.nummer}_abstimmungsmatrix.pdf"
+
+    def get_pdf_response(self, pdf):
+        response = super().get_pdf_response(pdf)
+        response["Content-Disposition"] = (
+            f'inline; filename="{self.get_pdf_filename()}"'
+        )
+        return response
 
 
 class SitzungDocxView(DetailView):

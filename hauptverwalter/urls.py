@@ -8,6 +8,7 @@ from .views import (
     AntragLeiterView,
     BaseAntragView,
     AntragQuittungView,
+    SitzungAbstimmungsmatrixView,
 )
 
 urlpatterns = [
@@ -45,6 +46,11 @@ urlpatterns = [
         "sitzung/<int:nummer>/",
         SitzungDetailView.as_view(),
         name="sitzung_detail_by_nummer",
+    ),
+    path(
+        "sitzung/<int:nummer>/abstimmungsmatrix",
+        SitzungAbstimmungsmatrixView.as_view(),
+        name="sitzung_matrix",
     ),
     path(
         "legislatur/<int:legislatur_nummer>/",

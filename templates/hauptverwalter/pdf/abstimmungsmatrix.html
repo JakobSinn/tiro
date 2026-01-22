@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+
+  <style>
+    @page {
+      size: A4;
+      margin: 2cm 2cm 3cm 2cm;
+
+      @bottom-center {
+        content: "Abstimmungsmatrix für die {{ sitzung.nummer }}. Sitzung – Seite "
+                 counter(page) " von " counter(pages)
+                 " – Stand {{ now|date:'d.m.Y H:i' }}";
+        font-size: 9pt;
+      }
+    }
+
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 11pt;
+      line-height: 1.4;
+      color: #000;
+    }
+
+    h1 {
+      font-family: Helvetica, sans-serif;
+      font-size: 16pt;
+      border-bottom: 2px solid #000;
+      margin-bottom: 0.5em;
+    }
+
+    h3 {
+      font-family: Helvetica, sans-serif;
+      font-size: 11pt;
+      margin-top: 1.2em;
+    }
+
+    .meta {
+      font-family: Helvetica, sans-serif;
+      font-size: 10pt;
+      margin-bottom: 1em;
+    }
+
+    /* ---- Bootstrap 5.3 table subset (PDF-safe) ---- */
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1em;
+      table-layout: fixed;
+    }
+
+    .table th,
+    .table td {
+      border: 1px solid #000;
+      padding: 0.45rem;
+      vertical-align: top;
+    }
+
+    .table thead th {
+      font-family: Helvetica, sans-serif;
+      font-size: 14pt;
+      background-color: #e9ecef;
+    }
+
+    .pdf-form { appearance: auto }
+
+    .table-striped tbody tr:nth-of-type(odd) {
+      background-color: #f8f9fa;
+    }
+
+    /* TOP rows override striping */
+    .top-row td {
+      background-color: #dee2e6 !important;
+      font-family: Helvetica, sans-serif;
+      font-weight: bold;
+    }
+
+    .nowrap {
+      white-space: nowrap;
+    }
+
+    .comment-cell {
+      height: 2.2cm;
+      padding: 0.25em;
+    }
+
+    .comment-field {
+      appearance: auto;
+    
+      display: block;
+      width: 100%;
+      height: 100%;          /* now works because parent has explicit height */
+    
+      box-sizing: border-box;
+    
+      background: transparent;
+      resize: none;
+    
+      font-family: "Times New Roman", Times, serif;
+      font-size: 11pt;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <h3>Abstimmungsmatrix</h3>
+  <h1><strong>{{ sitzung.nummer }}. Sitzung</strong> am {{ sitzung.anfang|date:"d.m.Y" }}</h1>
+
+  <div class="meta">
+    <strong>Beginn:</strong> {{ sitzung.anfang|date:"d.m.Y H:i" }}<br>
+    <strong>Generiert:</strong> {{ now|date:"d.m.Y H:i" }}<br>
+    <strong>Ort:</strong> {{ sitzung.ort }}<br>
+    {% if sitzung.is_sondersitzung %}
+    <strong>Sondersitzung!</strong><br>
+    {% endif %}
+    {% if sitzung.anmerkung %}
+    <strong>Anmerkung des Präsidiums:</strong> {{ sitzung.anmerkung }} <br>
+    {% endif %}
+    Erklärung der Markierungen: <strong>A</strong> = wird in dieser Lesung planmäßig abgestimmt; <strong>B</strong> = kann auch bei nicht beschlussfähigem StuRa abgestimmt werden; <strong>D</strong> = Dringlichkeit beantragt (Abstimmung in dieser Sitzung möglich); <strong>O</strong> = Änderung der OrgS (2/3-Mehrheit erforderlich); <strong>T</strong> = Tischvorlage (Aufnahme auf TO muss vom StuRa beschlossen werden)
+  </div>
+
+  <table class="table table-striped table-bordered">
+    <colgroup>
+      <col style="width: 4%;">
+      <col style="width: 18%;">
+      <col style="width: 28%;">
+      <col style="width: 50%;">
+    </colgroup>
+    <thead>
+      <tr>
+        <th></th>
+        <th class="nowrap">Antrag-Nr.</th>
+        <th>Antragstitel</th>
+        <th>Kommentar</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      {% for block in bloecke %}
+        <!-- TOP title row -->
+        <tr class="table-primary">
+          <td colspan="4">
+            {{ block.titel }}
+          </td>
+        </tr>
+
+        {% for lesung in block.lesungen %}
+          <tr>
+            <td>
+              {% if lesung.abstimmbar %}<strong>A </strong>{% endif%}
+              {% if lesung.antrag.beschlussfaehigkeitssicher %}<strong>B </strong>{% endif%}
+              {% if lesung.dringlichkeit_beantragt %}<strong>D </strong>{% endif%}
+              {% if lesung.antrag.will_orgsatzung_aendern%}<strong>O </strong>{% endif%}
+              {% if lesung.is_tischvorlage %}<strong>T</strong>{% endif%}
+            <td class="nowrap">
+              {{ lesung.antrag.legislatur.nummer }}/{{ lesung.antrag.nummer }}
+            </td>
+            <td>
+              {{ lesung.antrag.titel }} ({{ lesung.antrag.antragssteller }}{% if lesung.antrag.is_finanzantrag %}, {{lesung.antrag.antragssumme}} € {% endif %})
+            </td>
+            <td></td>
+          </tr>
+          {% for ua in lesung.antrag.unterantrag_set.all %}
+          <tr>
+            <td>Ä</td>
+            <td class="nowrap">
+              {{ ua.hauptantrag.legislatur.nummer }}/{{ ua.hauptantrag.nummer }}.{{ ua.nummer }}
+            </td>
+            <td>
+              {{ ua.titel }} ({{ ua.antragssteller }})
+            </td><td></td>
+          </tr>
+          {% endfor %}
+        {% endfor %}
+
+      {% endfor %}
+
+    </tbody>
+  </table>
+
+
+
+
+</body>
+</html>
