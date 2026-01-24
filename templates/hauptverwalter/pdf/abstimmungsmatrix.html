@@ -153,12 +153,12 @@
               {% if lesung.antrag.beschlussfaehigkeitssicher %}<strong>B </strong>{% endif%}
               {% if lesung.dringlichkeit_beantragt %}<strong>D </strong>{% endif%}
               {% if lesung.antrag.will_orgsatzung_aendern%}<strong>O </strong>{% endif%}
-              {% if lesung.is_tischvorlage %}<strong>T</strong>{% endif%}
+              {% if lesung.staus == "T" %}<strong>T</strong>{% endif%}
             <td class="nowrap">
-              {{ lesung.antrag.legislatur.nummer }}/{{ lesung.antrag.nummer }}
+              {{ lesung.antrag.legislatur.nummer }}/{{ lesung.antrag.nummer }}<br>({{lesung.nummer}}. Lesung)
             </td>
             <td>
-              {{ lesung.antrag.titel }} ({{ lesung.antrag.antragssteller }}{% if lesung.antrag.is_finanzantrag %}, {{lesung.antrag.antragssumme}} € {% endif %})
+              {{ lesung.antrag.titel }} ({{ lesung.antrag.antragssteller }}{% if lesung.antrag.is_finanzantrag %}, {{lesung.antrag.antragssumme}} €{% endif %})
             </td>
             <td></td>
           </tr>

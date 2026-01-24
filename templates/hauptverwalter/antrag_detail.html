@@ -15,6 +15,7 @@
 {% if antrag.beschlussfaehigkeitssicher %}
 <h5>Dieser Antrag kann nach §15 (4) der Geschäftsordnung auch von einem eigentlich beschlussunfähigen StuRa behandelt werden.</h5>
 {% endif %}
+{% if antrag.anzahl_vertagungen == 2 %}Dieser Antrag wurde bereits zwei mal vertagt und kann nach §13 (7) GeschO nicht noch einmal manuell vertagt werden.{% endif %}
 {% if antrag.unterantrag_set.exists %}
 {% if antrag.unterantrag.set.count == 1 %}
 <h5>Für diesen Antrag liegt <b>ein Änderungsantrag</b> vor.</h5>

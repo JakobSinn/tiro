@@ -148,7 +148,7 @@ class AntragBase(UUIDPrimaryKeyMixin, FileAttachmentMixin, models.Model):
 
 
 class Sitzung(UUIDPrimaryKeyMixin, models.Model):
-    """A StuRa meeting (Sitzung). Assigned to a Legislatur and optionally numbered."""
+    """Eine StuRa-Sitzung. WIrd einer Legislatur zugeordnet (im zweifel der neuesten) und erhält eine fortlaufende Nummer. Das Anmerkungen-Feld wird extern gezeigt und sollte nicht zu lang werden."""
 
     legislatur = models.ForeignKey(
         "Legislatur",
@@ -166,7 +166,7 @@ class Sitzung(UUIDPrimaryKeyMixin, models.Model):
         help_text="Wann beginnt die Sitzung?",
     )
     ende = models.DateTimeField(
-        help_text="Wann endet(e) die Sitzung?",
+        help_text="Wann endet(e) die Sitzung? (erst nach Sitzung eintragen, bitte)",
         blank=True,
         null=True,
     )
@@ -193,6 +193,7 @@ class Sitzung(UUIDPrimaryKeyMixin, models.Model):
 
     @property
     def is_past(self):
+        """Ist die sitzung schon vorbei? Falls noch kein Ende eingetragen wurde: ist es schon nach Mitternacht an dem Tag, an dem sie angefangen hat?"""
         now = timezone.now()
         if self.ende:
             return self.ende < now
@@ -203,10 +204,12 @@ class Sitzung(UUIDPrimaryKeyMixin, models.Model):
 
     @property
     def is_running(self):
+        """Läuft die Sitzung gerade?"""
         return not (self.is_past or self.is_future)
 
     @property
     def nummer_in_legislatur(self):
+        """Die wievielte Sitzung in der Legislatur haben wir?"""
         bisher_in_legislatur = (
             Sitzung.objects.filter(legislatur=self.legislatur)
             .filter(nummer__lt=self.nummer)
@@ -267,12 +270,13 @@ class Sitzung(UUIDPrimaryKeyMixin, models.Model):
 
 
 class Antrag(AntragBase):
-    """A primary Antrag: belongs to a Legislatur."""
+    """Ein Antrag. Berichte etc sind auch Anträge, werden aber nicht in allen Übersichten gezeigt."""
 
     typchoices = {
         "F": "Finanzantrag",
         "S": "Satzungs- oder Ordnungsänderungsantrag",
         "P": "Positionierungsantrag",
+        "B": "Bericht / Diskussion",
         "A": "Antrag",
     }
 
@@ -328,6 +332,14 @@ class Antrag(AntragBase):
         return self.typ == "F"
 
     @property
+    def is_bericht(self):
+        return self.typ == "B"
+
+    @property
+    def is_antrag(self):
+        return self.typ in ("F", "A", "S", "P")
+
+    @property
     def is_soantrag(self):
         return self.typ == "S"
 
@@ -342,19 +354,26 @@ class Antrag(AntragBase):
         (d.h. eine Lesung mit status='B' existiert)
         und keine Änderung der Organisationssatzung geplant ist. (siehe §15 (4, 5) der StuRa-Geschäftsordnung)
         """
-        # Prüfen, ob es Lesungen gibt, die wegen Beschlussunfähigkeit vertagt wurden
         hat_beschlussunfaehige_lesung = self.lesung_set.filter(status="B").exists()
 
         return hat_beschlussunfaehige_lesung and not self.will_orgsatzung_aendern
 
     @property
+    def anzahl_vertagungen(self):
+        """Für die Anwendung von §13 (7) GeschO wird getrackt, wie oft der Antrag schon manuell vertagt wurde."""
+        return self.lesung_set.filter(status="V").count()
+
+    @property
     def default_prio(self):
+        """Berichte 200, OrgS 300, andere Satzungen 400, Finanzanträge 500 alles andere 700"""
         if self.will_orgsatzung_aendern:
             return 300
-        if self.is_soantrag:
+        elif self.is_soantrag:
             return 400
         if self.is_finanzantrag:
             return 500
+        if self.is_bericht:
+            return 200
         return 700
 
     def clean(self):
@@ -440,7 +459,7 @@ class Antrag(AntragBase):
 
 
 class Unterantrag(AntragBase):
-    """A sub-amendment to a Hauptantrag (Hauptantrag must be in status 'B')."""
+    """Ein Unterantrag. Fügt eigentlich nur etwas Text etc dem Hauptantrag hinzu und wird als Anhängsel desselben behandelt. Nur Anträge in Beratung können ÄA erhalten."""
 
     hauptantrag = models.ForeignKey(
         "Antrag",
@@ -448,6 +467,7 @@ class Unterantrag(AntragBase):
         limit_choices_to={"status": "B"},  # restricts dropdown choices in forms/admin
     )
     nummer = models.IntegerField(
+        # Wird vom system gewählt, nummer des Unterantrags nach Eingangsreihenfolge
         help_text="Nummer des Subantrags",
         validators=[MinValueValidator(1)],
         editable=False,
@@ -497,7 +517,7 @@ class Unterantrag(AntragBase):
 
 
 class Lesung(UUIDPrimaryKeyMixin, models.Model):
-    """A reading of an Antrag in a Sitzung (tracks status, protokolleintraege, etc.)."""
+    """Eine Lesung eines Antrags in einer Sitzung. Neue Lesungen können nur für in Beratung befindliche Anträge generiert werden. Für lesungen kann ein Prioritätswert eigegeben werden, Lesungen mit gleicher Priorität werden in einem TOP organisiert und in diesem nach Engangsdatum des Antrags sortiert. Nach der Sitzung kann eingetragen werden, ob die Lesung erfolgreich stattgefunden hat oder vertagt wurde (feld Status) und der Protokollausschnitt eingefügt werden."""
 
     lesungresultchoices = {
         "AV": "Softwarevorschlag",
@@ -508,7 +528,7 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
         "B": "Wegen Beschlussunfähigkeit vertagt",
         "A": "Abgestimmt",
         "T": "Schwebende Lesung / als Tischvorlage",
-        "NT": "Aufname nach ",
+        "NT": "Aufname nach §10 (5) GeschO",
     }
 
     antrag = models.ForeignKey(Antrag, on_delete=models.CASCADE)
@@ -520,6 +540,7 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
     )
 
     abstimmbar = models.BooleanField(
+        # """Wird nach minlesungen des Antrags entschieden. Anstelle einer manuellen Änderung dieses Feldes sollte minlesungen geändert werden, zb bei Verlängerung der Beratungszeit."""
         blank=True,
         null=True,
         default=False,
@@ -528,12 +549,23 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
     )
 
     dringlichkeit_beantragt = models.BooleanField(
+        # """Sollte angekreuzt werden, wenn ein Dringlichkeitsantrag vorliegt. hat keine Effekte, ausser dass in den Unterlagen etc gewarnt wird."""
         blank=True,
         null=True,
         default=False,
         help_text="Könnte in dieser Lesung abgestimmt werden, wenn ein Dringlichkeitsantrag angeommen wird?",
     )
     status = models.CharField(
+        # """Choices sind "AV": "Softwarevorschlag", (wird zzt nicht verwendet)
+        # "NN": "Noch nicht gelesen", (standard vor der Sitzung)
+        # "E": "Erfolgreich gelesen",
+        # "V": "Manuell Vertagt",
+        # "ZV": "Wegen Ende der Sitzung vertagt",
+        # "B": "Wegen Beschlussunfähigkeit vertagt", (wichtig für tracking)
+        # "A": "Abgestimmt",
+        # "T": "Schwebende Lesung / als Tischvorlage", (für anträge, die zu spät eingegangen sind)
+        # "NT": "Aufname nach §10 (5) GeschO" (Der Antrag ist zu spät, aber noch vor Versenden der vorläufigen TO eingegangen)
+        # """
         max_length=2,
         choices=lesungresultchoices,
         help_text="In Welchem Status ist die Lesung",
@@ -549,19 +581,22 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
 
     @property
     def is_future(self):
+        """Impliziert status, dass die Lesung in der Zukunft liegt oder das Ergebnis noch nicht eingetragen wurde?"""
         return self.status in {"AV", "NN", "T"}
 
     @property
     def is_tischvorlage(self):
+        """Ist der Antrag eine Tischvorlage?"""
         return self.status in {"T", "NT"}
 
     @property
     def is_past(self):
+        """Wurde schon eingetragen, was in der Lesung pasiert ist?"""
         return self.status in {"E", "V", "ZV", "B", "A", "NT"}
 
     @property
     def nummer(self):
-        # die wievielte Lesung ist das (nur erfolgreiche werden gezählt)
+        """die wievielte Lesung ist das (nur erfolgreiche werden gezählt)"""
         return (
             Lesung.objects.filter(
                 antrag=self.antrag,
@@ -628,7 +663,14 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
                 "Anträge, die die Orgsatzung ändern, können nicht dringlich abgestimmt werden"
             )
 
-        if self.dringlichkeit_beantragt and self.abstimmbar:
+        if self.dringlichkeit_beantragt and (
+            Lesung.objects.filter(
+                antrag=self.antrag,
+                status="E",
+                sitzung__nummer__lt=self.sitzung.nummer,
+            ).count()
+            >= self.antrag.minlesungen - 1
+        ):
             raise ValidationError(
                 {
                     "dringlichkeit_beantragt": "Der Antrag ist schon als in dieser Lesung abstimmbar markiert - entweder vorherige Lesungen wurden fälschlich als Erfolgreich markiert oder der Dringlichkeitsantrag ist gegenstandslos"

@@ -73,6 +73,7 @@
     <strong>Nötige Lesungen:</strong> {{ antrag.minlesungen }}<br>
     <strong>Antragsteller:innen:</strong> {{ antrag.antragssteller }}<br>
     <strong>Eingereicht:</strong> {{ antrag.formell_eingereicht|date:"d.m.Y H:i" }}<br>
+    <strong>Manuelle Vertagungen:</strong> {{ antrag.anzahl_vertagungen }}<br>
     {% if antrag.is_finanzantrag %}
     <strong>Beantragte Summe:</strong> {{ antrag.antragssumme }} €<br>
     <strong>Haushaltsposten:</strong> {{ antrag.haushaltsposten }}<br>
