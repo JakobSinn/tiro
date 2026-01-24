@@ -112,7 +112,7 @@ class AntragBase(UUIDPrimaryKeyMixin, FileAttachmentMixin, models.Model):
     system_eingereicht = models.DateTimeField(auto_now_add=True, editable=False)
     formell_eingereicht = models.DateTimeField(
         help_text="Formelles Einreichdatum für Priorisierung, Fristen etc",
-        auto_now_add=True,
+        default=timezone.now,
     )
     anmerkungen_extern = models.TextField(
         max_length=10000,

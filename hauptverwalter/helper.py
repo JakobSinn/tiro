@@ -6,7 +6,7 @@ def buildTOPs(sitzung: Sitzung) -> List[dict]:
     lesungen = (
         Lesung.objects.filter(sitzung=sitzung)
         .select_related("antrag")
-        .order_by("prio", "-antrag__formell_eingereicht")
+        .order_by("prio", "antrag__formell_eingereicht")
     )
 
     # Load TOP names once and index by prio
