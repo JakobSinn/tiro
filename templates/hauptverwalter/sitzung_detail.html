@@ -33,6 +33,6 @@
 {% else %}
 <h5>In dieser Sitzung {% if sitzung.is_past %}fand{% else %}findet{% endif %} <b>{{ sitzung.lesung_set.count }} Lesungen</b> statt.</h5>
 {% endif %}
-{% include "hauptverwalter/lesung_module.html" with lesungsset=sitzung.lesung_set.all %}
+{% include "hauptverwalter/lesung_module.html" with lesungsset=lesungen %}
 {% endif %}
 {% endblock %}

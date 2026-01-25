@@ -22,25 +22,25 @@ def buildTOPs(sitzung: Sitzung) -> List[dict]:
     for lesung in lesungen:
         if lesung.prio != current_priority:
             current_priority = lesung.prio
-            top_counter += 1
-
-            titel = (
-                "TOP "
-                + str(top_counter)
-                + ": "
-                + topnames_by_prio.get(
-                    current_priority,
-                    "",
+            if topnames_by_prio.get(current_priority) or not grouped:
+                # Ein neuer Block wird nur eingerichtet, wenn ein TOP benannt wurde (oder beim ersten Block so oder so)
+                top_counter += 1
+                titel = (
+                    "TOP "
+                    + topnames_by_prio.get(
+                        current_priority,
+                        "Erster TOP (Prio "
+                        + str(current_priority)
+                        + ")",  # Diese alternative wird spezifisch erreicht wenn die erste Lesung einen Priowert hat fpr den es keinen Namen gibt  - dann wird als Fallback trotzdem ein TOP angefangen
+                    )
                 )
-            )
-
-            priority_block = {
-                "prio": current_priority,
-                "titel": titel,
-                "lesungen": [],
-            }
-            grouped.append(priority_block)
-
+                priority_block = {
+                    # priority_block zurücksetzen
+                    "prio": current_priority,
+                    "titel": titel,
+                    "lesungen": [],
+                }
+                grouped.append(priority_block)
         priority_block["lesungen"].append(lesung)
 
     return grouped

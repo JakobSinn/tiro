@@ -513,9 +513,6 @@ class Unterantrag(AntragBase):
         return f"Unterantrag {self.hauptantrag.legislatur.nummer}/{self.hauptantrag.nummer}.{self.nummer}: {self.hauptantrag.titel} / {self.titel}"
 
 
-# --- Lesung remains mostly the same, using UUID mixin -----------------------
-
-
 class Lesung(UUIDPrimaryKeyMixin, models.Model):
     """Eine Lesung eines Antrags in einer Sitzung. Neue Lesungen können nur für in Beratung befindliche Anträge generiert werden. Für lesungen kann ein Prioritätswert eigegeben werden, Lesungen mit gleicher Priorität werden in einem TOP organisiert und in diesem nach Engangsdatum des Antrags sortiert. Nach der Sitzung kann eingetragen werden, ob die Lesung erfolgreich stattgefunden hat oder vertagt wurde (feld Status) und der Protokollausschnitt eingefügt werden."""
 

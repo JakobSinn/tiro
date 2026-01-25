@@ -181,6 +181,16 @@ class SitzungDetailView(DetailView):
         # If neither lookup works, raise the normal error
         return get_object_or_404(queryset, pk=None)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Order related Lesungen
+        context["lesungen"] = self.object.lesung_set.order_by(
+            "prio", "antrag__formell_eingereicht"
+        )
+
+        return context
+
 
 class SitzungAbstimmungsmatrixView(WeasyTemplateResponseMixin, DetailView):
     """
