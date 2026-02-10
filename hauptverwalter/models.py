@@ -162,6 +162,34 @@ class Sitzung(UUIDPrimaryKeyMixin, models.Model):
         blank=True,
         null=True,
     )
+    anzeigen = models.BooleanField(
+        help_text="Soll die Sitzung der Öffentlichkeit auf Indexseiten angezeigt werden?",
+        null=True,
+        blank=True,
+        default=True,
+    )
+    STATUS_CHOICES = {
+        "N": "Noch kein Protokoll",
+        "V": "Protokollvorschlag vorgelegt",
+        "B": "Protokoll beschlossen",
+    }
+    status = models.CharField(
+        max_length=1,
+        help_text="Status der Sitzung / des Protokolls",
+        choices=STATUS_CHOICES,
+        default="N",
+    )
+    protokollsitzung = models.ForeignKey(
+        "Sitzung",
+        on_delete=models.DO_NOTHING,
+        help_text="Die Sitzung, in der das Protokoll beschlossen wurde",
+        blank=True,
+        null=True,
+    )
+    datei = models.FileField(
+        verbose_name="Tagesordnung / Protokoll",
+    )
+
     anfang = models.DateTimeField(
         help_text="Wann beginnt die Sitzung?",
     )
