@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Antrag erstellt{% endblock %}
+
+{% block content %}
+<div class="container mt-4 text-center">
+  <h3>Dein Antrag wurde erstellt</h3>
+  <p class="mt-3">Vielen Dank. Du kannst deinen Antrag hier ansehen:</p>
+  <a href="{{ antrag.get_absolute_url }}" class="btn btn-primary">Antrag anzeigen</a>
+</div>
+{% endblock %}

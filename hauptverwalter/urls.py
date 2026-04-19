@@ -9,6 +9,7 @@ from .views import (
     BaseAntragView,
     AntragQuittungView,
     SitzungAbstimmungsmatrixView,
+    AntragWizardView,
 )
 
 urlpatterns = [
@@ -21,6 +22,11 @@ urlpatterns = [
         "antragstellen/antrag",
         BaseAntragView.as_view(),
         name="antrag_stellen_basic",
+    ),
+    path(
+        "antragstellen/wizard/",
+        AntragWizardView.as_view(),
+        name="antrag_stellen_wizard",
     ),
     path(
         "antrag/<uuid:pk>/quittung",

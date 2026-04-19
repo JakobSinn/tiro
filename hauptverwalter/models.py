@@ -103,6 +103,13 @@ class AntragBase(UUIDPrimaryKeyMixin, FileAttachmentMixin, models.Model):
     kontaktemail = models.EmailField(
         help_text="Emailadresse für automatische Updates und Nachfragen, wird nicht veröffentlicht"
     )
+    wants_updates = models.BooleanField(
+        default=True,
+        blank=True,
+        null=True,
+        verbose_name="Auto-E-Mails",
+        help_text="Soll es Auto-Mails geben (zb bei Lesungen oder Annahme)?",
+    )
     kontaktperson = models.CharField(
         max_length=100,
         help_text="Eine spezifische Kontaktperson für Nachfragen, wird nicht veröffentlicht",
@@ -188,6 +195,8 @@ class Sitzung(UUIDPrimaryKeyMixin, models.Model):
     )
     datei = models.FileField(
         verbose_name="Tagesordnung / Protokoll",
+        blank=True,
+        null=True,
     )
 
     anfang = models.DateTimeField(
@@ -201,6 +210,7 @@ class Sitzung(UUIDPrimaryKeyMixin, models.Model):
     sondersitzung = models.BooleanField(
         blank=True,
         help_text="Ist die Sitzung eine Sondersitzung?",
+        default=False,
     )
     anmerkungen = models.TextField(
         blank=True,
@@ -221,7 +231,7 @@ class Sitzung(UUIDPrimaryKeyMixin, models.Model):
 
     @property
     def is_past(self):
-        """Ist die sitzung schon vorbei? Falls noch kein Ende eingetragen wurde: ist es schon nach Mitternacht an dem Tag, an dem sie angefangen hat?"""
+        """Ist die Sitzung schon vorbei? Falls noch kein Ende eingetragen wurde: ist es schon nach Mitternacht an dem Tag, an dem sie angefangen hat?"""
         now = timezone.now()
         if self.ende:
             return self.ende < now
@@ -304,8 +314,8 @@ class Antrag(AntragBase):
         "F": "Finanzantrag",
         "S": "Satzungs- oder Ordnungsänderungsantrag",
         "P": "Positionierungsantrag",
-        "B": "Bericht / Diskussion",
-        "A": "Antrag",
+        "B": "Bericht",
+        "A": "Anderer Antrag / Diskussionsantrag",
     }
 
     legislatur = models.ForeignKey(
@@ -327,6 +337,8 @@ class Antrag(AntragBase):
     minlesungen = models.IntegerField(
         help_text="Minimal nötige Lesungen bis zur Abstimmung",
         validators=[MinValueValidator(1)],
+        default=1,
+        blank=True,
     )
     antragssumme = models.DecimalField(
         blank=True,
@@ -477,6 +489,17 @@ class Antrag(AntragBase):
                 )
                 self.nummer = (last_nummer or 0) + 1
 
+            # If minlesungen not set, pick sensible default per typ (keep business logic in model)
+            if not self.minlesungen:
+                defaults = {
+                    "F": 2,  # Finanzanträge
+                    "S": 2,  # Satzungs-/Ordnungsänderung
+                    "P": 1,  # Positionierungsantrag
+                    "B": 1,  # Bericht / Diskussion
+                    "A": 2,  # Allgemeiner Antrag
+                }
+                self.minlesungen = defaults.get(self.typ, 2)
+
             # Run validation
             self.full_clean()
 
@@ -596,12 +619,15 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
         help_text="In Welchem Status ist die Lesung",
         default="NN",
     )
-    prio = models.IntegerField(
-        verbose_name="Priorität",
-        help_text="Niedrige Werte tauchen auf generierten Tagesordnungen früher auf",
-        validators=[MinValueValidator(0)],
+    # Legacy numeric prio removed: grouping is done with TOPBlock now.
+
+    # New: grouping into an explicit TOP block. Nullable for migration transition.
+    topblock = models.ForeignKey(
+        "TOPBlock",
+        on_delete=models.CASCADE,
         blank=True,
         null=True,
+        related_name="lesungen",
     )
 
     @property
@@ -719,7 +745,7 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
 
     def save(self, *args, **kwargs):
         """Ist der Antrag in dieser Lesung abstimmbar? Wenn keine Priorität manuell gegeben wurde, standardwerte annehmen"""
-        previous_successful = Lesung.objects.filter(
+    previous_successful = Lesung.objects.filter(
             antrag=self.antrag,
             status="E",
             sitzung__nummer__lt=self.sitzung.nummer,
@@ -727,10 +753,7 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
 
         self.abstimmbar = previous_successful >= self.antrag.minlesungen - 1
 
-        if not self.prio:
-            self.prio = self.antrag.default_prio
-
-        super().save(*args, **kwargs)
+    super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Lesung {self.nummer} von {self.antrag} in Sitzung {self.sitzung.nummer}, {self.get_status_display()}"
@@ -739,6 +762,7 @@ class Lesung(UUIDPrimaryKeyMixin, models.Model):
 class TOPname(UUIDPrimaryKeyMixin, models.Model):
     """Gibt einem bestimmten Prioritäten-Level in einer Sitzung einen bestimmten Namen"""
 
+    # Legacy TOPname model kept for backward compatibility but no longer used for ordering.
     sitzung = models.ForeignKey(Sitzung, on_delete=models.CASCADE)
     name = models.CharField(
         help_text="Der TOP-Name für alle Lesungen mit diesem Prio-Wert", max_length=200
@@ -752,3 +776,8 @@ class TOPname(UUIDPrimaryKeyMixin, models.Model):
     class Meta:
         unique_together = [["name", "sitzung"], ["prio", "sitzung"]]
         ordering = ["sitzung__nummer", "prio"]
+
+
+# TOPname and numeric prio have been removed in favor of TOPBlock.
+        unique_together = [["sitzung", "order"]]
+        ordering = ["sitzung__nummer", "order"]

@@ -1,4 +1,4 @@
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
@@ -9,8 +9,10 @@ from django_weasyprint import WeasyTemplateResponseMixin
 from docxtpl import DocxTemplate
 import io
 
+from formtools.wizard.views import SessionWizardView
+
 from .models import Antrag, Unterantrag, Sitzung, Legislatur, Lesung  # noqa: F401
-from .forms import BaseAntragForm
+from .forms import Step1Form, Step2Form
 from .helper import buildTOPs
 
 
@@ -33,8 +35,86 @@ class AntragLeiterView(TemplateView):
 
 class BaseAntragView(CreateView):
     model = Antrag
-    form_class = BaseAntragForm
+    form_class = Step2Form
     template_name = "hauptverwalter/antrag_form_basic.html"
+
+
+class AntragWizardView(SessionWizardView):
+    """Two-step wizard: step1 collects contact + type, step2 collects Antrag body."""
+
+    form_list = [Step1Form, Step2Form]
+    file_storage = None
+
+    def get_template_names(self):
+        return ["hauptverwalter/wizard_step.html"]
+
+    def get_form_kwargs(self, step):
+        kwargs = super().get_form_kwargs(step)
+        # for Step2, forward the selected typ so it can set required fields
+        if step == "1":
+            # data from step0 (Step1Form) is in storage
+            data = self.get_cleaned_data_for_step("0") or {}
+            kwargs.update({"selected_typ": data.get("typ")})
+        return kwargs
+
+    def get_context_data(self, form, **kwargs):
+        context = super().get_context_data(form=form, **kwargs)
+        # expose a human-readable label for the selected typ (from step1) to the template
+        step0 = self.get_cleaned_data_for_step("0") or {}
+        typ_code = step0.get("typ")
+        if typ_code:
+            # use Step1Form choices to find label
+            try:
+                context["selected_typ_label"] = dict(Step1Form.TYPE_CHOICES).get(
+                    typ_code
+                )
+            except Exception:
+                context["selected_typ_label"] = typ_code
+        else:
+            context["selected_typ_label"] = None
+        return context
+
+    def done(self, form_list, **kwargs):
+        data = {}
+        for f in form_list:
+            data.update(getattr(f, "cleaned_data", {}) or {})
+
+        # Build Antrag instance
+        antrag = Antrag()
+        # map Step1 fields
+        for k in (
+            "antragssteller",
+            "kontaktperson",
+            "kontaktemail",
+            "wants_updates",
+            "typ",
+        ):
+            if k in data:
+                setattr(antrag, k, data[k])
+
+        # map Step2 fields
+        for k in (
+            "titel",
+            "text",
+            "begruendung",
+            "antragssumme",
+            "haushaltsposten",
+            "orgsatzungsaenderung",
+            "minlesungen",
+        ):
+            if k in data:
+                setattr(antrag, k, data[k])
+
+        # handle file fields manually if provided in cleaned_data
+        if data.get("anhang"):
+            antrag.anhang = data.get("anhang")
+        if data.get("synopse"):
+            antrag.synopse = data.get("synopse")
+
+        # save will apply defaults and validation
+        antrag.save()
+
+        return redirect("antrag_detail_by_pk", pk=antrag.pk)
 
 
 class SitzungListView(ListView):

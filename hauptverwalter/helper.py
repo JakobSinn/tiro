@@ -1,8 +1,29 @@
 from typing import List
-from .models import Lesung, Sitzung, TOPname
+from .models import Lesung, Sitzung, TOPname, TOPBlock
 
 
 def buildTOPs(sitzung: Sitzung) -> List[dict]:
+    """Group Lesungen into TOP blocks for the given Sitzung.
+
+    Prefer explicit TOPBlock grouping when available (new model). If TOPBlock
+    relations are not populated yet, fall back to old prio/TOPname grouping to
+    preserve existing behavior during migration.
+    """
+    # If TOPBlock objects exist for this Sitzung, use them (ordered by 'order')
+    topblocks = list(TOPBlock.objects.filter(sitzung=sitzung).order_by("order"))
+
+    if topblocks:
+        grouped = []
+        for tb in topblocks:
+            lesungen = list(
+                tb.lesungen.select_related("antrag").order_by(
+                    "antrag__formell_eingereicht"
+                )
+            )
+            grouped.append({"titel": tb.titel, "lesungen": lesungen})
+        return grouped
+
+    # Fallback: old behavior
     lesungen = (
         Lesung.objects.filter(sitzung=sitzung)
         .select_related("antrag")
@@ -23,19 +44,12 @@ def buildTOPs(sitzung: Sitzung) -> List[dict]:
         if lesung.prio != current_priority:
             current_priority = lesung.prio
             if topnames_by_prio.get(current_priority) or not grouped:
-                # Ein neuer Block wird nur eingerichtet, wenn ein TOP benannt wurde (oder beim ersten Block so oder so)
                 top_counter += 1
-                titel = (
-                    "TOP "
-                    + topnames_by_prio.get(
-                        current_priority,
-                        "Erster TOP (Prio "
-                        + str(current_priority)
-                        + ")",  # Diese alternative wird spezifisch erreicht wenn die erste Lesung einen Priowert hat fpr den es keinen Namen gibt  - dann wird als Fallback trotzdem ein TOP angefangen
-                    )
+                titel = "TOP " + topnames_by_prio.get(
+                    current_priority,
+                    "Erster TOP (Prio " + str(current_priority) + ")",
                 )
                 priority_block = {
-                    # priority_block zurücksetzen
                     "prio": current_priority,
                     "titel": titel,
                     "lesungen": [],
