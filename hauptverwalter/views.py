@@ -11,7 +11,7 @@ import io
 
 from formtools.wizard.views import SessionWizardView
 
-from .models import Antrag, Unterantrag, Sitzung, Legislatur, Lesung  # noqa: F401
+from .models_alt import Antrag, Unterantrag, Sitzung, Legislatur, Lesung  # noqa: F401
 from .forms import Step1Form, Step2Form
 from .helper import buildTOPs
 

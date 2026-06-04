@@ -2,7 +2,7 @@
 
 import django.core.validators
 import django.db.models.deletion
-import hauptverwalter.models
+import hauptverwalter.models_alt
 import uuid
 from django.db import migrations, models
 
@@ -36,8 +36,8 @@ class Migration(migrations.Migration):
                 ('antragssumme', models.DecimalField(blank=True, decimal_places=2, max_digits=8, null=True)),
                 ('haushaltsposten', models.CharField(blank=True, help_text='Aus welchem Haushaltsposten wird Geld beantragt (nur Kennummer)?', max_length=10, null=True)),
                 ('orgsatzungsaenderung', models.BooleanField(blank=True, default=False, help_text='Geht es um eine Änderung der Organisationssatzung?')),
-                ('synopse', models.FileField(blank=True, help_text='Synopse bei Änderung von Ordnungen oder Satzungen', null=True, upload_to=hauptverwalter.models.makeuploadpatsynopse)),
-                ('anhang', models.FileField(blank=True, help_text='Anhang an den Antrag', null=True, upload_to=hauptverwalter.models.makeuploadpathanhang)),
+                ('synopse', models.FileField(blank=True, help_text='Synopse bei Änderung von Ordnungen oder Satzungen', null=True, upload_to=hauptverwalter.models_alt.makeuploadpatsynopse)),
+                ('anhang', models.FileField(blank=True, help_text='Anhang an den Antrag', null=True, upload_to=hauptverwalter.models_alt.makeuploadpathanhang)),
                 ('antragssteller', models.CharField(help_text='Antragssteller:innen (Name, HSG, Gremium...)', max_length=500)),
                 ('kontaktemail', models.EmailField(help_text='Emailadresse für automatische Updates und Nachfragen', max_length=254)),
                 ('kontaktperson', models.CharField(blank=True, help_text='Eine spezifische Kontaktperson für Nachfragen', max_length=100)),
@@ -92,7 +92,7 @@ class Migration(migrations.Migration):
                 ('status', models.CharField(choices=[('B', 'In Beratung'), ('A', 'Angenommen'), ('N', 'Abgelehnt'), ('Z', 'Zurückgezogen'), ('X', 'Nicht behandelt'), ('P', 'Vom Präsidium zurückgewiesen')], default='B', max_length=1)),
                 ('system_eingereicht', models.DateTimeField(auto_now_add=True)),
                 ('formell_eingereicht', models.DateTimeField(auto_now_add=True)),
-                ('anhang', models.FileField(blank=True, help_text='Anhang an den Änderungsantrag', null=True, upload_to=hauptverwalter.models.makeuploadpathanhang)),
+                ('anhang', models.FileField(blank=True, help_text='Anhang an den Änderungsantrag', null=True, upload_to=hauptverwalter.models_alt.makeuploadpathanhang)),
                 ('hauptantrag', models.ForeignKey(limit_choices_to={'status': 'B'}, on_delete=django.db.models.deletion.CASCADE, to='hauptverwalter.antrag')),
             ],
             options={

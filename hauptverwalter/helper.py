@@ -1,5 +1,5 @@
 from typing import List
-from .models import Lesung, Sitzung, TOPname, TOPBlock
+from .models_alt import Lesung, Sitzung, TOPname, TOPBlock
 
 
 def buildTOPs(sitzung: Sitzung) -> List[dict]:

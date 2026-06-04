@@ -1,5 +1,5 @@
 from django import forms
-from .models import Antrag
+from .models_alt import Antrag
 
 
 class Step1Form(forms.Form):

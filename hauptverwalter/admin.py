@@ -1,5 +1,5 @@
 from django.contrib import admin, messages
-from .models import Legislatur, Sitzung, Antrag, Unterantrag, Lesung
+from .models_alt import Legislatur, Sitzung, Antrag, Unterantrag, Lesung
 from django.db import transaction
 from django.core.exceptions import ValidationError
 

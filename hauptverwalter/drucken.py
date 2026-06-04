@@ -1,7 +1,7 @@
 from datetime import datetime
 from fpdf import FPDF
 from django.contrib.staticfiles import finders
-from .models
+from .models_alt
 
 def bericht_status_pdf(Antrag):
     """
