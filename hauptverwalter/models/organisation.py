@@ -4,6 +4,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 import uuid
 
+from .sitzungen import Legislatur
+
 
 class Faden(models.Model):
     """Ein Faden. Repräsäntiert einen Antrag, Bericht, Änderungsantrag etc, alles, was theoretisch Vertagt werden könnte,"""
@@ -43,6 +45,13 @@ class Schiffchen(models.Model):
     """Ein Schiffchen. In der Realität werden oft mehrere Fäden immer gemeinsam auf eine TO gesetzt (zb ein Antrag immer mit seinen Unteranträgen). Das Schiffchen repräsentiert diese Gruppierung von Fäden"""
 
     id = models.AutoField(primary_key=True)
+    legislatur = models.ForeignKey(
+        Legislatur,
+        on_delete=models.CASCADE,
+        related_name="schiffchen",
+        null=True,
+        blank=True,
+    )
     hauptfaden = models.ForeignKey(
         # der Hauptfaden
         Faden,

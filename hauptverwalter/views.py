@@ -11,17 +11,174 @@ import io
 
 from formtools.wizard.views import SessionWizardView
 
-from .models_alt import Antrag, Unterantrag, Sitzung, Legislatur, Lesung  # noqa: F401
-from .forms import Step1Form, Step2Form
-from .helper import buildTOPs
+from .models.dokumente import Antrag, SOAntrag, Finanzantrag, Anhang
+from .models.sitzungen import Sitzung, Sondersitzung, Legislatur
+from .models.organisation import Schiffchen, Faden
+
+from .forms import Step1Form, Step2Form, BasicAntragForm
 
 
 def get_current_legislature():
-    nummer = Legislatur.objects.order_by("-nummer").first().nummer
-    if not nummer:
+    aktuell = Legislatur.objects.order_by("-nummer").first()
+    if not aktuell:
         return 1
+    return aktuell.nummer
+
+
+def get_current_legislature_obj():
+    return Legislatur.objects.order_by("-nummer").first()
+
+
+class ListLikeManager:
+    def __init__(self, items):
+        self._items = list(items)
+
+    def all(self):
+        return list(self._items)
+
+    def count(self):
+        return len(self._items)
+
+    def exists(self):
+        return bool(self._items)
+
+    def __iter__(self):
+        return iter(self._items)
+
+    def __len__(self):
+        return len(self._items)
+
+
+def _typ_display_for_antrag(antrag):
+    if isinstance(antrag, Finanzantrag):
+        return "Finanzantrag"
+    if isinstance(antrag, SOAntrag):
+        return "Satzung / Ordnungsänderung"
+    return "Allgemeiner Antrag"
+
+
+def _status_display_for_antrag(status):
+    return {"B": "In Beratung", "A": "Angenommen", "N": "Abgelehnt"}.get(
+        status, "In Beratung"
+    )
+
+
+def decorate_antrag(antrag, schiffchen=None):
+    schiffchen = (
+        schiffchen or Schiffchen.objects.filter(hauptfaden=antrag.faden).first()
+    )
+    antrag.legislatur = schiffchen.legislatur if schiffchen else None
+    antrag.nummer = schiffchen.id if schiffchen else antrag.faden.id
+    antrag.status = getattr(antrag, "status", "B")
+    antrag.get_status_display = lambda: _status_display_for_antrag(antrag.status)
+    antrag.get_typ_display = lambda: _typ_display_for_antrag(antrag)
+    antrag.formell_eingereicht = getattr(antrag, "eingereicht_organisatorisch", None)
+    antrag.ist_finanzantrag = isinstance(antrag, Finanzantrag)
+    antrag.will_orgsatzung_aendern = bool(
+        getattr(antrag, "orgsatzungsaenderung", False)
+    )
+    antrag.beschlussfaehigkeitssicher = getattr(
+        antrag, "beschlussfaehigkeitssicher", False
+    )
+    antrag.anzahl_vertagungen = getattr(antrag, "anzahl_vertagungen", 0)
+
+    unterantraege = []
+    if antrag.faden:
+        for unterfaden in antrag.faden.unterfaeden.all():
+            ua = unterfaden.vorlage
+            if ua:
+                ua.nummer = unterfaden.id
+                ua.formell_eingereicht = getattr(
+                    ua, "eingereicht_organisatorisch", None
+                )
+                ua.get_status_display = lambda: _status_display_for_antrag("B")
+                unterantraege.append(ua)
+    antrag.unterantrag_set = ListLikeManager(unterantraege)
+
+    lesungen = []
+    if schiffchen:
+        lesungen = list(schiffchen.lesungen.all())
+        for lesung in lesungen:
+            lesung.antrag = antrag
+            lesung.get_status_display = lambda: ""
+    antrag.lesung_set = ListLikeManager(lesungen)
+
+    return antrag
+
+
+def decorate_sitzung(sitzung):
+    now = timezone.now()
+    sitzung.is_sondersitzung = isinstance(sitzung, Sondersitzung)
+    sitzung.is_future = sitzung.anfang > now
+    sitzung.is_running = sitzung.anfang <= now and (
+        sitzung.ende is None or sitzung.ende >= now
+    )
+    sitzung.is_past = bool(sitzung.ende and sitzung.ende < now)
+    sitzung.anmerkungen = getattr(sitzung, "anmerkung", None)
+    sitzung.lesung_set = ListLikeManager([])
+    return sitzung
+
+
+def create_faden_and_vorlage(cleaned):
+    faden = Faden(
+        email=cleaned.get("kontaktemail"),
+        kontaktperson=cleaned.get("kontaktperson") or "",
+    )
+    faden.save()
+
+    typ = cleaned.get("typ")
+    titel = cleaned.get("titel") or "Antrag"
+    if typ == "F":
+        vorlage = Finanzantrag(
+            faden=faden,
+            titel=titel,
+            text=cleaned.get("text"),
+            begruendung=cleaned.get("begruendung"),
+            antragssteller=cleaned.get("antragssteller"),
+            antragssumme=cleaned.get("antragssumme"),
+            haushaltsposten=cleaned.get("haushaltsposten"),
+        )
+    elif typ == "S":
+        vorlage = SOAntrag(
+            faden=faden,
+            titel=titel,
+            text=cleaned.get("text"),
+            begruendung=cleaned.get("begruendung"),
+            antragssteller=cleaned.get("antragssteller"),
+            orgsatzungsaenderung=cleaned.get("orgsatzungsaenderung") or False,
+        )
     else:
-        return nummer
+        vorlage = Antrag(
+            faden=faden,
+            titel=titel,
+            text=cleaned.get("text"),
+            begruendung=cleaned.get("begruendung"),
+            antragssteller=cleaned.get("antragssteller"),
+        )
+
+    vorlage.save()
+
+    faden.aktuelle_vl = vorlage
+    faden.save(update_fields=["aktuelle_vl"])
+
+    if faden.ueberfaden is None:
+        legislatur = get_current_legislature_obj()
+        schiffchen = Schiffchen(
+            hauptfaden=faden,
+            legislatur=legislatur,
+            erwartete_lesungen=1,
+        )
+        schiffchen.save()
+
+    anhang = cleaned.get("anhang")
+    if anhang:
+        Anhang.objects.create(
+            faden=faden,
+            datei=anhang,
+            titel=getattr(anhang, "name", "Anhang"),
+        )
+
+    return vorlage
 
 
 class AntragLeiterView(TemplateView):
@@ -35,8 +192,12 @@ class AntragLeiterView(TemplateView):
 
 class BaseAntragView(CreateView):
     model = Antrag
-    form_class = Step2Form
+    form_class = BasicAntragForm
     template_name = "hauptverwalter/antrag_form_basic.html"
+
+    def form_valid(self, form):
+        vorlage = create_faden_and_vorlage(form.cleaned_data)
+        return redirect("antrag_detail_by_pk", pk=vorlage.pk)
 
 
 class AntragWizardView(SessionWizardView):
@@ -79,42 +240,9 @@ class AntragWizardView(SessionWizardView):
         for f in form_list:
             data.update(getattr(f, "cleaned_data", {}) or {})
 
-        # Build Antrag instance
-        antrag = Antrag()
-        # map Step1 fields
-        for k in (
-            "antragssteller",
-            "kontaktperson",
-            "kontaktemail",
-            "wants_updates",
-            "typ",
-        ):
-            if k in data:
-                setattr(antrag, k, data[k])
+        vorlage = create_faden_and_vorlage(data)
 
-        # map Step2 fields
-        for k in (
-            "titel",
-            "text",
-            "begruendung",
-            "antragssumme",
-            "haushaltsposten",
-            "orgsatzungsaenderung",
-            "minlesungen",
-        ):
-            if k in data:
-                setattr(antrag, k, data[k])
-
-        # handle file fields manually if provided in cleaned_data
-        if data.get("anhang"):
-            antrag.anhang = data.get("anhang")
-        if data.get("synopse"):
-            antrag.synopse = data.get("synopse")
-
-        # save will apply defaults and validation
-        antrag.save()
-
-        return redirect("antrag_detail_by_pk", pk=antrag.pk)
+        return redirect("antrag_detail_by_pk", pk=vorlage.pk)
 
 
 class SitzungListView(ListView):
@@ -132,6 +260,7 @@ class SitzungListView(ListView):
         context = super().get_context_data(**kwargs)
         legislatur_nummer = self.kwargs.get("legislatur_nummer")
         context["legislatur"] = get_object_or_404(Legislatur, nummer=legislatur_nummer)
+        context["sitzungen"] = [decorate_sitzung(s) for s in context["sitzungen"]]
         return context
 
 
@@ -146,8 +275,9 @@ class IndexView(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["antraege_zahl"] = Antrag.objects.filter(status="B").count()
+        context["antraege_zahl"] = Antrag.objects.count()
         context["aktuelle_legislatur"] = get_current_legislature()
+        context["sitzungen"] = [decorate_sitzung(s) for s in context["sitzungen"]]
         return context
 
 
@@ -157,21 +287,7 @@ class AntragListView(ListView):
     template_name = "antrag_list.html"
 
     def get_queryset(self):
-        legislatur_nummer = self.kwargs.get("legislatur_nummer")
-        qs = Antrag.objects.filter(legislatur__nummer=legislatur_nummer).order_by(
-            "-nummer"
-        )
-
-        # --- Filtering logic ---
-        status = self.request.GET.get("status")
-        typ = self.request.GET.get("typ")
-
-        if status:
-            qs = qs.filter(status=status)
-        if typ:
-            qs = qs.filter(typ=typ)
-
-        return qs
+        return Antrag.objects.none()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -182,6 +298,15 @@ class AntragListView(ListView):
         context["current_status"] = self.request.GET.get("status", "")
         context["current_type"] = self.request.GET.get("type", "")
 
+        schiffchen_qs = Schiffchen.objects.filter(
+            legislatur__nummer=legislatur_nummer
+        ).select_related("hauptfaden", "legislatur")
+        antraege = []
+        for schiffchen in schiffchen_qs:
+            vorlage = schiffchen.hauptfaden.vorlage
+            if isinstance(vorlage, Antrag):
+                antraege.append(decorate_antrag(vorlage, schiffchen=schiffchen))
+        context["antraege"] = antraege
         return context
 
 
@@ -196,14 +321,10 @@ class AntragQuittungView(WeasyTemplateResponseMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        antrag = self.get_object()
+        antrag = decorate_antrag(self.get_object())
         context["antrag"] = antrag
-        context["unterantraege"] = Unterantrag.objects.filter(
-            hauptantrag=antrag
-        ).order_by("nummer")
-        context["lesungen"] = Lesung.objects.filter(antrag=antrag).order_by(
-            "sitzung__nummer"
-        )
+        context["unterantraege"] = antrag.unterantrag_set.all()
+        context["lesungen"] = antrag.lesung_set.all()
         context["now"] = timezone.now()
         return context
 
@@ -232,14 +353,14 @@ class AntragDetailView(DetailView):
         nummer = self.kwargs.get("nummer")
 
         if pk:
-            # Default lookup by primary key
-            return get_object_or_404(queryset, pk=pk)
+            return decorate_antrag(get_object_or_404(queryset, pk=pk))
 
         if legislatur_nummer and nummer:
-            # Lookup by composite key
-            return get_object_or_404(
-                queryset, legislatur__nummer=legislatur_nummer, nummer=nummer
+            schiffchen = get_object_or_404(
+                Schiffchen, legislatur__nummer=legislatur_nummer, id=nummer
             )
+            vorlage = schiffchen.hauptfaden.vorlage
+            return decorate_antrag(vorlage, schiffchen=schiffchen)
 
         # If neither lookup works, raise the normal error
         return get_object_or_404(queryset, pk=None)
@@ -255,20 +376,17 @@ class SitzungDetailView(DetailView):
         nummer = self.kwargs.get("nummer")
 
         if nummer:
-            # Lookup by composite key
-            return get_object_or_404(queryset, nummer=nummer)
+            return decorate_sitzung(get_object_or_404(queryset, nummer=nummer))
+
+        if pk:
+            return decorate_sitzung(get_object_or_404(queryset, pk=pk))
 
         # If neither lookup works, raise the normal error
         return get_object_or_404(queryset, pk=None)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        # Order related Lesungen
-        context["lesungen"] = self.object.lesung_set.order_by(
-            "prio", "antrag__formell_eingereicht"
-        )
-
+        context["lesungen"] = self.object.lesung_set.all()
         return context
 
 
@@ -290,13 +408,11 @@ class SitzungAbstimmungsmatrixView(WeasyTemplateResponseMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        sitzung = self.object
-
+        sitzung = decorate_sitzung(self.object)
         context.update(
             {
                 "sitzung": sitzung,
-                "bloecke": buildTOPs(sitzung),
+                "bloecke": [],
                 "now": timezone.now(),
             }
         )
@@ -323,12 +439,7 @@ class SitzungDocxView(DetailView):
         context = super().get_context_data(**kwargs)
         sitzung = self.object
 
-        # Query all lesungen belonging to this Sitzung
-        lesungen = (
-            Lesung.objects.filter(sitzung=sitzung)
-            .select_related("antrag")
-            .order_by("priority", "antrag__formell_eingereicht")
-        )
+        lesungen = []
 
         # Build grouped structure
         grouped = []
@@ -344,6 +455,7 @@ class SitzungDocxView(DetailView):
 
         context["sitzung"] = sitzung
         context["lesungen"] = lesungen
+        return context
 
     def render_to_response(self, context, **response_kwargs):
         # Load docx template

@@ -1,5 +1,4 @@
 from django import forms
-from .models_alt import Antrag
 
 
 class Step1Form(forms.Form):
@@ -25,42 +24,31 @@ class Step1Form(forms.Form):
     typ = forms.ChoiceField(choices=TYPE_CHOICES, label="Antragstyp")
 
 
-class Step2Form(forms.ModelForm):
-    """Second step: the Antrag content. ModelForm for Antrag. Server enforces per-type rules in clean()."""
+class Step2Form(forms.Form):
+    """Second step: Antrag/Vorlage content. Server enforces per-type rules in clean()."""
 
-    class Meta:
-        model = Antrag
-        fields = [
-            "typ",
-            "titel",
-            "text",
-            "begruendung",
-            "anhang",
-            "synopse",
-            "antragssumme",
-            "haushaltsposten",
-            "orgsatzungsaenderung",
-        ]
-        labels = {"text": "Zu beschliessender Antragstext"}
+    typ = forms.CharField(required=False)
+    titel = forms.CharField(max_length=255)
+    text = forms.CharField(widget=forms.Textarea, max_length=20000)
+    begruendung = forms.CharField(widget=forms.Textarea, max_length=40000)
+    anhang = forms.FileField(required=False)
+    antragssumme = forms.DecimalField(required=False, max_digits=20, decimal_places=2)
+    haushaltsposten = forms.CharField(required=False, max_length=10)
+    orgsatzungsaenderung = forms.BooleanField(required=False)
 
     def __init__(self, *args, **kwargs):
-        # allow the view to pass the chosen typ via kwargs for initialisation
         self.selected_typ = kwargs.pop("selected_typ", None)
         super().__init__(*args, **kwargs)
 
-        # Determine active typ from supplied kwarg, bound data (POST), or initial
         typ = self.selected_typ
         if not typ:
-            # POSTed data may include the typ from step1; try to read it
             try:
-                # self.data is a QueryDict when bound
                 typ = self.data.get("typ") or self.data.get(self.add_prefix("typ"))
             except Exception:
                 typ = None
         if not typ:
             typ = self.initial.get("typ")
 
-        # Ensure the hidden typ field exists and reflects the chosen type
         if "typ" in self.fields:
             from django.forms import HiddenInput
 
@@ -68,34 +56,27 @@ class Step2Form(forms.ModelForm):
             if typ:
                 self.initial.setdefault("typ", typ)
 
-        # Fields that are always shown
         common = {"typ", "titel", "text", "begruendung", "anhang"}
-
-        # Per-type additional fields
         type_fields = {
             "F": {"antragssumme", "haushaltsposten"},
-            "S": {"synopse", "orgsatzungsaenderung"},
+            "S": {"orgsatzungsaenderung"},
             "P": set(),
             "B": set(),
             "A": set(),
         }
 
-        # Decide which fields to keep
         keep = set(common)
         if typ in type_fields:
             keep |= type_fields.get(typ, set())
         else:
-            # default: show all fields if typ unknown
             keep = set(self.fields.keys())
 
-        # Adjust required flags for UX (final checks remain in clean())
         if typ == "F":
             if "antragssumme" in self.fields:
                 self.fields["antragssumme"].required = True
             if "haushaltsposten" in self.fields:
                 self.fields["haushaltsposten"].required = True
 
-        # Remove non-relevant fields from the form so templates only render necessary inputs
         for fname in list(self.fields.keys()):
             if fname not in keep:
                 self.fields.pop(fname, None)
@@ -126,4 +107,33 @@ class Step2Form(forms.ModelForm):
                     "Bei Änderungen der Organisationssatzung bitte eine Synopse hochladen.",
                 )
 
+        return cleaned
+
+
+class BasicAntragForm(forms.Form):
+    """Single-step form for basic Antrag submission without the wizard."""
+
+    typ = forms.CharField(required=False)
+    antragssteller = forms.CharField(max_length=500, label="Formelle Antragssteller:in")
+    kontaktperson = forms.CharField(max_length=100, required=False)
+    kontaktemail = forms.EmailField(label="Kontakt E-Mail")
+    titel = forms.CharField(max_length=255, required=False)
+    text = forms.CharField(widget=forms.Textarea, max_length=20000)
+    begruendung = forms.CharField(widget=forms.Textarea, max_length=40000)
+    anhang = forms.FileField(required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from django.forms import HiddenInput
+
+        self.fields["typ"].widget = HiddenInput()
+        self.initial.setdefault("typ", "A")
+
+    def clean(self):
+        cleaned = super().clean()
+        titel = cleaned.get("titel")
+        if not titel:
+            text = cleaned.get("text") or ""
+            first_line = next((line for line in text.splitlines() if line.strip()), "")
+            cleaned["titel"] = first_line[:255] or "Antrag"
         return cleaned
