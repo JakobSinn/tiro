@@ -22,6 +22,13 @@ class Sitzung(models.Model):
         Legislatur, on_delete=models.CASCADE, related_name="sitzungen"
     )
     ort = models.CharField(max_length=255)
+    protokoll_beschlossen_in = models.ForeignKey(
+        "Sitzung",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="beschlossene_protokolle",
+    )
 
 
 class Sondersitzung(Sitzung):

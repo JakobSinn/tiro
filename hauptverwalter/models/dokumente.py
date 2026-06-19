@@ -12,7 +12,7 @@ class Vorlage(models.Model):
         default=True, help_text="Soll die Vorlage sichtbar sein?"
     )
     faden = models.ForeignKey(
-        "organisation.Faden", on_delete=models.CASCADE, related_name="vorlagen"
+        "hauptverwalter.Faden", on_delete=models.CASCADE, related_name="vorlagen"
     )
     eingereicht_technisch = models.DateTimeField(auto_now_add=True)
     eingereicht_organisatorisch = models.DateTimeField(default=timezone.now)
@@ -55,7 +55,7 @@ class Anhang(models.Model):
         default=True, help_text="Soll der Anhang sichtbar sein?"
     )
     faden = models.ForeignKey(
-        "organisation.Faden", on_delete=models.CASCADE, related_name="anhaenge"
+        "hauptverwalter.Faden", on_delete=models.CASCADE, related_name="anhaenge"
     )
 
     @property

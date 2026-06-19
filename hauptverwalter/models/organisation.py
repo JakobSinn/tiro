@@ -14,7 +14,11 @@ class Faden(models.Model):
     email = models.EmailField()
     kontaktperson = models.CharField(max_length=100)
     aktuelle_vl = models.ForeignKey(
-        dokumente.Vorlage, on_delete=models.SET_NULL, null=True, blank=True
+        dokumente.Vorlage,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="faden_aktuell",
     )
     ueberfaden = models.ForeignKey(
         "self",

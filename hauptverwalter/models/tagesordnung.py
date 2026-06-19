@@ -1,5 +1,6 @@
 from django.db import models
 from .sitzungen import Sitzung
+from .organisation import Lesung, Schiffchen
 from django.core.validators import MinValueValidator
 
 
@@ -11,16 +12,12 @@ class Tagesordnungspunkt(models.Model):
         ("A", "Abgestimmt/Entschieden"),
     ]
     id = models.AutoField(primary_key=True)
-    lesung = (
-        models.ForeignKey(
-            "Lesung", on_delete=models.CASCADE, related_name="tagesordnungspunkte"
-        ),
+    lesung = models.ForeignKey(
+        "Lesung", on_delete=models.CASCADE, related_name="tagesordnungspunkte"
     )
     protokolltext = models.TextField(max_length=10000, blank=True, null=True)
-    sitzung = (
-        models.ForeignKey(
-            Sitzung, on_delete=models.CASCADE, related_name="tagesordnungspunkte"
-        ),
+    sitzung = models.ForeignKey(
+        Sitzung, on_delete=models.CASCADE, related_name="tagesordnungspunkte"
     )
     nummer = models.IntegerField(
         validators=[MinValueValidator(1)],
@@ -35,6 +32,9 @@ class Tagesordnungspunkt(models.Model):
 
     class Meta:
         unique_together = ["sitzung", "nummer"]
+    
+    def __str__(self):
+        return f"TOP {self.nummer} - {self.lesung.schiffchen.}"
 
 
 class Tischvorlage(Tagesordnungspunkt):
