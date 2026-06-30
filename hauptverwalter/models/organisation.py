@@ -8,12 +8,12 @@ from .sitzungen import Legislatur
 
 
 class Faden(models.Model):
-    """Ein Faden. Repräsäntiert einen Antrag, Bericht, Änderungsantrag etc, alles, was theoretisch Vertagt werden könnte,"""
+    """Ein Faden. Repräsentiert einen Antrag, Bericht, Änderungsantrag etc, alles, was theoretisch Vertagt werden könnte,"""
 
     id = models.AutoField(primary_key=True)
     email = models.EmailField()
     kontaktperson = models.CharField(max_length=100)
-    aktuelle_vl = models.ForeignKey(
+    aktuelle_vorlage = models.ForeignKey(
         dokumente.Vorlage,
         on_delete=models.SET_NULL,
         null=True,
@@ -31,18 +31,46 @@ class Faden(models.Model):
     def __str__(self):
         return "Faden {} ({})".format(
             self.id,
-            self.aktuelle_vl.titel if self.aktuelle_vl else "keine prf. Vorlage",
+            self.aktuelle_vorlage.titel
+            if self.aktuelle_vorlage
+            else "keine prf. Vorlage",
         )
 
     @property
     def vorlage(self):
-        if self.aktuelle_vl:
-            return self.aktuelle_vl
-        return (
-            dokumente.Vorlage.objects.filter(faden=self)
-            .order_by("-eingereicht_organisatorisch")
-            .first()
-        )
+        if self.aktuelle_vorlage:
+            return self.aktuelle_vorlage
+        else:
+            return (
+                dokumente.Vorlage.objects.filter(faden=self)
+                .order_by("-eingereicht_organisatorisch")
+                .first()
+            )
+
+    @property
+    def aktenzeichen(self):
+        if self.ueberfaden:
+            nummer_in_ueberfaden = (
+                Faden.objects.filter(ueberfaden=self.ueberfaden)
+                .filter(id__lt=self.id)
+                .count()
+                + 1
+            )
+            return str(self.ueberfaden.aktenzeichen) + "." + str(nummer_in_ueberfaden)
+        else:
+            return (
+                Faden.objects.filter(schiffchen__legislatur=self.schiffchen.legislatur)
+                .filter(id__lt=self.id)
+                .count()
+                + 1
+            )
+
+    def clean(self, **kwargs):
+        super().clean()
+        if self.aktuelle_vorlage and not self.aktuelle_vorlage.faden == self:
+            raise ValidationError(
+                "Ausgewählte Aktuelle Vorlage gehört nicht zu diesem Faden!"
+            )
 
 
 class Schiffchen(models.Model):
@@ -56,7 +84,7 @@ class Schiffchen(models.Model):
         null=True,
         blank=True,
     )
-    hauptfaden = models.ForeignKey(
+    hauptfaden = models.OneToOneField(
         # der Hauptfaden
         Faden,
         on_delete=models.CASCADE,

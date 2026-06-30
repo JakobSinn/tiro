@@ -1,6 +1,5 @@
 from django.db import models
 from .sitzungen import Sitzung
-from .organisation import Lesung, Schiffchen
 from django.core.validators import MinValueValidator
 
 
@@ -22,6 +21,8 @@ class Tagesordnungspunkt(models.Model):
     nummer = models.IntegerField(
         validators=[MinValueValidator(1)],
         help_text="Die Nummer dieses TOPs in der Tagesordnung der Sitzung",
+        null=True,
+        blank=True,
     )
     ergebnis = models.CharField(
         choices=ergebnis_choices,
@@ -32,9 +33,12 @@ class Tagesordnungspunkt(models.Model):
 
     class Meta:
         unique_together = ["sitzung", "nummer"]
-    
+
     def __str__(self):
-        return f"TOP {self.nummer} - {self.lesung.schiffchen.}"
+        if self.nummer:
+            return f"TOP {self.nummer} - {self.lesung.schiffchen.id}"
+        else:
+            return f"Unnummerierter TOP - {self.lesung.schiffchen.id}"
 
 
 class Tischvorlage(Tagesordnungspunkt):

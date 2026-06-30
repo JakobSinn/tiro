@@ -15,7 +15,7 @@ class Legislatur(models.Model):
 
 
 class Sitzung(models.Model):
-    nummer = models.AutoField(primary_key=True, validators=[MinValueValidator(1)])
+    nummer = models.IntegerField(primary_key=True, validators=[MinValueValidator(1)])
     anfang = models.DateTimeField()
     ende = models.DateTimeField(null=True, blank=True)
     legislatur = models.ForeignKey(
