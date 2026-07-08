@@ -1,11 +1,9 @@
 from django.db import models
 
-import uuid
 from django.utils import timezone
 
 
 class Vorlage(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     titel = models.CharField(max_length=255)
     text = models.TextField(max_length=20000)
     zeigen = models.BooleanField(
@@ -30,7 +28,9 @@ class Antrag(Vorlage):
 
 
 class Finanzantrag(Antrag):
-    antragssumme = models.DecimalField(max_digits=20, decimal_places=2)
+    antragssumme = models.DecimalField(
+        max_digits=20, decimal_places=2, help_text="In Euro"
+    )
     haushaltsposten = models.CharField(
         max_length=10,
         help_text="Aus welchem Haushaltsposten wird Geld beantragt (nur Kennummer)?",
@@ -47,7 +47,6 @@ class SOAntrag(Antrag):
 
 
 class Anhang(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     datei = models.FileField(upload_to="anhang/")
     titel = models.CharField(max_length=255)
     hochgeladen_am = models.DateTimeField(auto_now_add=True)

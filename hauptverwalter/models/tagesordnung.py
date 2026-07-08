@@ -1,6 +1,7 @@
 from django.db import models
 from .sitzungen import Sitzung
 from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
 
 
 class Tagesordnungspunkt(models.Model):
@@ -10,10 +11,14 @@ class Tagesordnungspunkt(models.Model):
         ("U", "Durch Sitzungsende vertagt"),
         ("A", "Abgestimmt/Entschieden"),
     ]
-    id = models.AutoField(primary_key=True)
     lesung = models.ForeignKey(
-        "Lesung", on_delete=models.CASCADE, related_name="tagesordnungspunkte"
+        "Lesung",
+        on_delete=models.CASCADE,
+        related_name="tagesordnungspunkte",
+        blank=True,
+        null=True,
     )
+    manueller_titel = models.CharField(max_length=100, blank=True, null=True)
     protokolltext = models.TextField(max_length=10000, blank=True, null=True)
     sitzung = models.ForeignKey(
         Sitzung, on_delete=models.CASCADE, related_name="tagesordnungspunkte"
@@ -30,15 +35,30 @@ class Tagesordnungspunkt(models.Model):
         blank=True,
         null=True,
     )
+    dringlichkeit_beantragt = models.BooleanField(
+        default=False,
+    )
+
+    @property
+    def titel(self):
+        return self.manueller_titel or self.lesung.__str__() or "Kein Titel"
 
     class Meta:
         unique_together = ["sitzung", "nummer"]
 
     def __str__(self):
         if self.nummer:
-            return f"TOP {self.nummer} - {self.lesung.schiffchen.id}"
+            return f"TOP {self.nummer} - {self.titel}"
         else:
-            return f"Unnummerierter TOP - {self.lesung.schiffchen.id}"
+            return f"Unnummerierter TOP - {self.titel}"
+
+    def clean(self):
+        # Nur Fäden ohne Überfaden dürfen Schiffchen haben
+        if not self.lesung:
+            if not self.manueller_titel:
+                raise ValidationError(
+                    "Tagesordnungspunkte, die keine Vorlage behandeln, brauchen einen manuellen Titel!"
+                )
 
 
 class Tischvorlage(Tagesordnungspunkt):

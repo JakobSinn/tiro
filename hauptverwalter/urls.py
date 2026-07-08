@@ -1,72 +1,15 @@
-# from django.urls import path
-# from .views import (
-#    AntragDetailView,
-#    SitzungDetailView,
-#    SitzungListView,
-#    AntragListView,
-#    IndexView,
-#    AntragLeiterView,
-#    BaseAntragView,
-#    AntragQuittungView,
-#    SitzungAbstimmungsmatrixView,
-#    AntragWizardView,
-# )
-#
-# urlpatterns = [
-#    path(
-#        "antragstellen/",
-#        AntragLeiterView.as_view(),
-#        name="antrag_stellen",
-#    ),
-#    path(
-#        "antragstellen/antrag",
-#        BaseAntragView.as_view(),
-#        name="antrag_stellen_basic",
-#    ),
-#    path(
-#        "antragstellen/wizard/",
-#        AntragWizardView.as_view(),
-#        name="antrag_stellen_wizard",
-#    ),
-#    path(
-#        "antrag/<uuid:pk>/quittung",
-#        AntragQuittungView.as_view(),
-#        name="antrag_quittung",
-#    ),
-#    path(
-#        "antrag/<uuid:pk>/",
-#        AntragDetailView.as_view(),
-#        name="antrag_detail_by_pk",
-#    ),
-#    path(
-#        "antrag/<int:legislatur_nummer>/<int:nummer>/",
-#        AntragDetailView.as_view(),
-#        name="antrag_detail_by_nummer",
-#    ),
-#    path(
-#        "antrag/<int:legislatur_nummer>/",
-#        AntragListView.as_view(),
-#        name="antrag_by_legislatur",
-#    ),
-#    path(
-#        "sitzung/<int:nummer>/",
-#        SitzungDetailView.as_view(),
-#        name="sitzung_detail_by_nummer",
-#    ),
-#    path(
-#        "sitzung/<int:nummer>/abstimmungsmatrix",
-#        SitzungAbstimmungsmatrixView.as_view(),
-#        name="sitzung_matrix",
-#    ),
-#    path(
-#        "legislatur/<int:legislatur_nummer>/",
-#        SitzungListView.as_view(),
-#        name="legislatur_by_nummer",
-#    ),
-#    path(
-#        "",
-#        IndexView.as_view(),
-#        name="index",
-#    ),
-# ]
-#
+from django.urls import path
+from hauptverwalter.views.einzelviews import EineSitzungView, IndexView
+
+urlpatterns = [
+    path(
+        "sitzung/<int:pk>",
+        EineSitzungView.as_view(),
+        name="sitzung",
+    ),
+    path(
+        "",
+        IndexView.as_view(),
+        name="index",
+    ),
+]

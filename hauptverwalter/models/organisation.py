@@ -2,7 +2,6 @@ from django.db import models
 from hauptverwalter.models import dokumente
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-import uuid
 
 from .sitzungen import Legislatur
 
@@ -10,7 +9,6 @@ from .sitzungen import Legislatur
 class Faden(models.Model):
     """Ein Faden. Repräsentiert einen Antrag, Bericht, Änderungsantrag etc, alles, was theoretisch Vertagt werden könnte,"""
 
-    id = models.AutoField(primary_key=True)
     email = models.EmailField()
     kontaktperson = models.CharField(max_length=100)
     aktuelle_vorlage = models.ForeignKey(
@@ -76,7 +74,6 @@ class Faden(models.Model):
 class Schiffchen(models.Model):
     """Ein Schiffchen. In der Realität werden oft mehrere Fäden immer gemeinsam auf eine TO gesetzt (zb ein Antrag immer mit seinen Unteranträgen). Das Schiffchen repräsentiert diese Gruppierung von Fäden"""
 
-    id = models.AutoField(primary_key=True)
     legislatur = models.ForeignKey(
         Legislatur,
         on_delete=models.CASCADE,
@@ -94,6 +91,10 @@ class Schiffchen(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(10)],
         help_text="Wie viele Lesungen werden für diesen Antrag erwartet? (1-10)",
     )
+
+    @property
+    def titel(self):
+        pass
 
     def __str__(self):
         return "Schiffchen {} ({})".format(
@@ -114,27 +115,24 @@ class Schiffchen(models.Model):
 class Lesung(models.Model):
     """Eine Lesung."""
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     schiffchen = models.ForeignKey(
         Schiffchen, on_delete=models.CASCADE, related_name="lesungen"
-    )
-    dringlichkeit_beantragt = models.BooleanField(
-        default=False,
-        help_text="Könnte in dieser Lesung abgestimmt werden, wenn ein Dringlichkeitsantrag angenommen wird?",
     )
 
     @property
     def nummer(self):
-        pass
-
-    @property
-    def planmaessig_abstimmbar(self):
-        pass
+        """Die wievielte Lesung ist das (#Anzahl früherer Lesungen +1)"""
+        return (
+            Lesung.objects.filter(schiffchen=self.schiffchen)
+            .filter(id__lt=self.id)
+            .count()
+            + 1
+        )
 
     def __str__(self):
-        return "Lesung {} für Antrag {}".format(
+        return "Lesung {} für Antrag/Vorlage {}".format(
             self.nummer,
-            self.schiffchen.vorlage.titel
-            if self.schiffchen.vorlage
-            else "keine Vorlage",
+            self.schiffchen.hauptfaden.vorlage.titel
+            if self.schiffchen.hauptfaden.vorlage
+            else self.schiffchen.hauptfaden.aktenzeichen,
         )

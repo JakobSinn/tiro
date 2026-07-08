@@ -1,5 +1,13 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
+from datetime import date
+
+
+def _as_date(value):
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+    return value
 
 
 class Legislatur(models.Model):
@@ -22,6 +30,7 @@ class Sitzung(models.Model):
         Legislatur, on_delete=models.CASCADE, related_name="sitzungen"
     )
     ort = models.CharField(max_length=255)
+    anmerkungen = models.CharField(max_length=200, blank=True, null=True)
     protokoll_beschlossen_in = models.ForeignKey(
         "Sitzung",
         on_delete=models.SET_NULL,
@@ -29,6 +38,28 @@ class Sitzung(models.Model):
         blank=True,
         related_name="beschlossene_protokolle",
     )
+
+    @property
+    def is_past(self):
+        if self.ende is not None:
+            return True
+        else:
+            return False
+
+    def clean(self):
+        super().clean()
+        if self.legislatur and self.anfang:
+            start_datum = self.anfang.date()
+            legislatur_anfang = _as_date(self.legislatur.anfang)
+            legislatur_ende = _as_date(self.legislatur.ende)
+            if start_datum < legislatur_anfang or start_datum > legislatur_ende:
+                raise ValidationError(
+                    {"anfang": "Die Sitzung muss innerhalb der Legislatur beginnen."}
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
 
 class Sondersitzung(Sitzung):

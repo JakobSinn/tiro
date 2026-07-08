@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.admindocs",
     "hauptverwalter",
     "django_bootstrap5",
+    "django_extensions",
 ]
 
 MIDDLEWARE = [
