@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "test-aktenzeichen",
+			"type": "shell",
+			"command": "source /home/jakob/.venvs/django/bin/activate && cd /home/jakob/Programmieren/tiro && python manage.py test hauptverwalter.models.testaktenzeichen",
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "test"
+		}
+	]
+}

@@ -1,7 +1,7 @@
 from django.test import TestCase
 from hauptverwalter.models.organisation import Faden, Schiffchen
 from hauptverwalter.models.sitzungen import Legislatur
-from hauptverwalter.service import count_unterfaeden
+from hauptverwalter.service import count_unterfaeden, get_faden_from_aktenzeichen
 
 
 class Testaktenzeichen(TestCase):
@@ -33,6 +33,17 @@ class Testaktenzeichen(TestCase):
         self.assertEqual(f1.aktenzeichen, "1")
         self.assertEqual(f2.aktenzeichen, "2")
         self.assertEqual(f11.aktenzeichen, "1.1")
+
+    def test_get_faden_from_aktenzeichen(self):
+        f1 = Faden.objects.get(email="1@example.com")
+        f2 = Faden.objects.get(kontaktperson="2kontakt")
+        f11 = Faden.objects.get(email="1.1@example.com")
+
+        self.assertEqual(get_faden_from_aktenzeichen("1"), f1)
+        self.assertEqual(get_faden_from_aktenzeichen("2"), f2)
+        self.assertEqual(get_faden_from_aktenzeichen("1.1"), f11)
+        self.assertIsNone(get_faden_from_aktenzeichen("3"))
+        self.assertIsNone(get_faden_from_aktenzeichen("1.2"))
 
 
 class TestCountUnterfaeden(TestCase):

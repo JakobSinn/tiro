@@ -1,5 +1,5 @@
 from django.db import models
-from hauptverwalter.models import dokumente
+from hauptverwalter.models import dokumente, tagesordnung
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -135,6 +135,26 @@ class Lesung(models.Model):
     schiffchen = models.ForeignKey(
         Schiffchen, on_delete=models.CASCADE, related_name="lesungen"
     )
+
+    @property
+    def wurde_angesetzt(self):
+        return bool(tagesordnung.Tagesordnungspunkt.objects.filter(lesung=self).first())
+
+    @property
+    def wurde_durchgeführt(self):
+        return bool(
+            tagesordnung.Tagesordnungspunkt.objects.filter(lesung=self).filter(
+                ergebnis="E"
+            )
+        )
+
+    @property
+    def wurde_abgestimmt(self):
+        return bool(
+            tagesordnung.Tagesordnungspunkt.objects.filter(lesung=self).filter(
+                ergebnis="A"
+            )
+        )
 
     @property
     def nummer(self):

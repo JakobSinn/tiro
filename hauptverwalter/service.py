@@ -28,6 +28,43 @@ def get_current_legislature():
     return Legislatur.objects.order_by("-nummer").first()
 
 
+def get_faden_from_aktenzeichen(
+    aktenzeichen: str, legislatur: Legislatur | None = None
+):
+    if not aktenzeichen:
+        return None
+
+    if legislatur is None:
+        legislatur = get_current_legislature()
+
+    teile = aktenzeichen.split(".")
+
+    def _get_root_faeden():
+        if legislatur is not None:
+            return (
+                Faden.objects.filter(
+                    ueberfaden__isnull=True, schiffchen__legislatur=legislatur
+                )
+                .order_by("eingereicht")
+                .distinct()
+            )
+        return Faden.objects.filter(ueberfaden__isnull=True).order_by("eingereicht")
+
+    try:
+        aktueller_faden = list(_get_root_faeden())[int(teile[0]) - 1]
+    except (ValueError, IndexError):
+        return None
+
+    for teil in teile[1:]:
+        try:
+            unterfaeden = list(aktueller_faden.unterfaeden.order_by("eingereicht"))
+            aktueller_faden = unterfaeden[int(teil) - 1]
+        except (ValueError, IndexError):
+            return None
+
+    return aktueller_faden
+
+
 def get_active_schiffchen(gesuchte_legislatur: Legislatur):
     """Gibt dict mit id von Schiffchen als key aus, das alle Schiffchen der legislatur, die noch keinen TOP mit Status "A" (Abgestimmt/Entschieden) haben, aus"""
     if gesuchte_legislatur is None:
@@ -70,6 +107,16 @@ def count_unterfaeden(aktueller_faden: Faden):
     else:
         return result
     return 0
+
+
+def get_schiffchen(unser_faden: Faden):
+    """Sucht für einen Faden ein schaffchen oder gibt 0 zurück"""
+    if unser_faden.schiffchen:
+        return unser_faden.schiffchen
+    elif unser_faden.ueberfaden:
+        return get_schiffchen(unser_faden.ueberfaden)
+    else:
+        return 0
 
 
 def new_faden(
