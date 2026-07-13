@@ -30,8 +30,8 @@ class Testaktenzeichen(TestCase):
         f1 = Faden.objects.get(email="1@example.com")
         f2 = Faden.objects.get(kontaktperson="2kontakt")
         f11 = Faden.objects.get(email="1.1@example.com")
-        self.assertEqual(f1.aktenzeichen, 1)
-        self.assertEqual(f2.aktenzeichen, 2)
+        self.assertEqual(f1.aktenzeichen, "1")
+        self.assertEqual(f2.aktenzeichen, "2")
         self.assertEqual(f11.aktenzeichen, "1.1")
 
 

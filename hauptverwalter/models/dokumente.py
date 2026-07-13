@@ -7,7 +7,12 @@ class Vorlage(models.Model):
     titel = models.CharField(max_length=255)
     text = models.TextField(max_length=20000)
     zeigen = models.BooleanField(
-        default=True, help_text="Soll die Vorlage sichtbar sein?"
+        default=True,
+        help_text="Soll die Vorlage sichtbar sein?",
+    )
+    geheim = models.BooleanField(
+        default=False,
+        help_text="Ist das hier die nichtöffentliche Version der Vorlage?",
     )
     faden = models.ForeignKey(
         "hauptverwalter.Faden", on_delete=models.CASCADE, related_name="vorlagen"
@@ -40,9 +45,11 @@ class Finanzantrag(Antrag):
 class SOAntrag(Antrag):
     orgsatzungsaenderung = models.BooleanField(
         default=False,
-        null=True,
-        blank=True,
         help_text="Geht es um eine Änderung der Organisationssatzung?",
+    )
+    zu_aendernde_satzung = models.CharField(
+        max_length=300,
+        verbose_name="Name der zu ändernden/einzurichtenden Satzung",
     )
 
 

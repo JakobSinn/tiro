@@ -1,8 +1,8 @@
 from django.db import models
 from hauptverwalter.models import dokumente
+from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-
 from .sitzungen import Legislatur
 
 
@@ -25,13 +25,12 @@ class Faden(models.Model):
         blank=True,
         related_name="unterfaeden",
     )
+    eingereicht = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return "Faden {} ({})".format(
             self.id,
-            self.aktuelle_vorlage.titel
-            if self.aktuelle_vorlage
-            else "keine prf. Vorlage",
+            self.vorlage.titel if self.vorlage else "keine prf. Vorlage",
         )
 
     @property
@@ -48,20 +47,28 @@ class Faden(models.Model):
     @property
     def aktenzeichen(self):
         if self.ueberfaden:
-            nummer_in_ueberfaden = (
-                Faden.objects.filter(ueberfaden=self.ueberfaden)
-                .filter(id__lt=self.id)
-                .count()
-                + 1
-            )
+            faeden_auf_gleicher_ebene = Faden.objects.filter(
+                ueberfaden=self.ueberfaden
+            ).order_by("eingereicht")
+            nummer_in_ueberfaden = list(faeden_auf_gleicher_ebene).index(self) + 1
             return str(self.ueberfaden.aktenzeichen) + "." + str(nummer_in_ueberfaden)
         else:
-            return (
-                Faden.objects.filter(schiffchen__legislatur=self.schiffchen.legislatur)
-                .filter(id__lt=self.id)
-                .count()
-                + 1
-            )
+            if self.schiffchen:
+                faeden_auf_gleicher_ebene = (
+                    Faden.objects.filter(
+                        schiffchen__legislatur=self.schiffchen.legislatur
+                    )
+                    .filter(ueberfaden__isnull=True)
+                    .order_by("eingereicht")
+                )
+            else:
+                # hier wissen wir gar nicht, in welcher legislatur wir sind: daher ordenen wir uns bei anderen schiffchenlosen hauptfäden ein
+                faeden_auf_gleicher_ebene = (
+                    Faden.objects.filter(schiffchen__isnull=True)
+                    .filter(ueberfaden__isnull=True)
+                    .order_by("eingereicht")
+                )
+            return str(list(faeden_auf_gleicher_ebene).index(self) + 1)
 
     def clean(self, **kwargs):
         super().clean()
@@ -69,6 +76,15 @@ class Faden(models.Model):
             raise ValidationError(
                 "Ausgewählte Aktuelle Vorlage gehört nicht zu diesem Faden!"
             )
+        if self.pk:
+            # ueberfaden darf nicht verändert werden
+            original_ueberfaden_id = (
+                Faden.objects.only("ueberfaden_id").get(pk=self.pk).ueberfaden_id
+            )
+            if original_ueberfaden_id != self.ueberfaden_id:
+                raise ValidationError(
+                    "Nach Einreichen darf der Überfaden nicht mehr geändert werden"
+                )
 
 
 class Schiffchen(models.Model):
@@ -97,8 +113,9 @@ class Schiffchen(models.Model):
         pass
 
     def __str__(self):
-        return "Schiffchen {} ({})".format(
-            self.id,
+        return "Schiffchen {}/{} ({})".format(
+            self.legislatur.nummer,
+            self.hauptfaden.aktenzeichen,
             self.hauptfaden.vorlage.titel
             if self.hauptfaden.vorlage
             else "keine Vorlage",
@@ -130,9 +147,12 @@ class Lesung(models.Model):
         )
 
     def __str__(self):
-        return "Lesung {} für Antrag/Vorlage {}".format(
+        return "Lesung {} von {} für Antrag/Vorlage {}".format(
             self.nummer,
+            self.schiffchen.erwartete_lesungen,
             self.schiffchen.hauptfaden.vorlage.titel
             if self.schiffchen.hauptfaden.vorlage
-            else self.schiffchen.hauptfaden.aktenzeichen,
+            else self.schiffchen.legislatur.nummer
+            + "/"
+            + self.schiffchen.hauptfaden.aktenzeichen,
         )
